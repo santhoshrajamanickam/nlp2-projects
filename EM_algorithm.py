@@ -8,7 +8,7 @@ def EM_algorithm(english_sentences, french_sentences):
     t = defaultdict(lambda: random.uniform(0, 1)) # translation parameters
     q = defaultdict(lambda: random.uniform(0, 1)) # distortion/alignment parameters
 
-    S = 50 # number of iterations
+    S = 10 # number of iterations
     training_size = len(english_sentences)
     previous_likelihood = 0.0
 
@@ -46,10 +46,10 @@ def EM_algorithm(english_sentences, french_sentences):
                     french_alignment_counts[(i+1, l, m)] += delta
 
             # print("Done sentence {}.".format(k))
-        for keys in t.keys():
-            t[(keys[0], keys[1])] = word_counts[(keys[1], keys[0])]/english_word_counts[keys[1]]
+        for keys in word_counts.keys():
+            t[(keys[1], keys[0])] = word_counts[(keys[0], keys[1])]/english_word_counts[keys[0]]
 
-        for keys in q.keys():
+        for keys in alignment_counts.keys():
             q[(keys[0], keys[1], keys[2], keys[3])] = alignment_counts[(keys[0], keys[1], keys[2], keys[3])]/french_alignment_counts[keys[1], keys[2], keys[3]]
 
         time_taken = (time.time() - start)
