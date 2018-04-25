@@ -3,30 +3,41 @@
 
 class ParallelCorpus:
 
-    def __init__(self, english_filepath, french_filepath):
+    def __init__(self, english_training_path, french_training_path, english_testing_path, french_testing_path):
 
-        self.english_sentences = []
-        self.french_sentences = []
-        self.english2french = {}
-        self.english_words = set()
-        self.french_words = set()
+        self.training_english = []
+        self.training_french = []
+        self.testing_english = []
+        self.testing_french = []
 
-        with open(english_filepath) as file:
+        print("============")
+        print("Loading Data")
+        print("============")
+
+        with open(english_training_path) as file:
             for i, line in enumerate(file):
                 sentence = [x.lower() for x in line.split()] # convert all words to lowercase
-                sentence.insert(0,'NULL')
-                # self.english_words = self.english_words.union(sentence)
-                self.english_sentences.append(sentence)
+                sentence.insert(0,'NULL') # adding a NULL word
+                self.training_english.append(sentence)
 
-        with open(french_filepath) as file:
+        with open(french_training_path) as file:
             for i, line in enumerate(file):
                 sentence = [x.lower() for x in line.split()] # convert all words to lowercase
-                # self.french_words = self.french_words.union(sentence)
-                self.french_sentences.append(sentence)
+                self.training_french.append(sentence)
 
-        print("Number of English sentences: {}".format(len(self.english_sentences)))
-        print("Number of French sentences: {}".format(len(self.french_sentences)))
-        # print(len(self.english_words))
-        # print(len(self.french_words))
-        # print(self.english_sentences[5])
-        # print(self.french_sentences[5])
+        with open(english_testing_path) as file:
+            for i, line in enumerate(file):
+                sentence = [x.lower() for x in line.split()] # convert all words to lowercase
+                sentence.insert(0,'NULL') # adding a NULL word
+                self.testing_english.append(sentence)
+
+        with open(french_testing_path) as file:
+            for i, line in enumerate(file):
+                sentence = [x.lower() for x in line.split()] # convert all words to lowercase
+                self.testing_french.append(sentence)
+
+
+        print("Number of English sentences in the training set: {}".format(len(self.training_english)))
+        print("Number of French sentences in the training set: {}".format(len(self.training_french)))
+        print("Number of English sentences in the testing set: {}".format(len(self.testing_english)))
+        print("Number of French sentences in the testing set: {}".format(len(self.testing_french)))
