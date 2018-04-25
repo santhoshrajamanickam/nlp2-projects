@@ -2,6 +2,7 @@ from collections import defaultdict
 import random
 import math
 import time
+from aer import AERSufficientStatistics, read_naacl_alignments
 
 class IBM:
 
@@ -44,7 +45,7 @@ class IBM:
 
                 for i in range(0, m):
 
-                    french_word = self.french_sentences[k][i-1]
+                    french_word = self.french_sentences[k][i]
 
                     normalization_constant = 0.0
                     precompute_delta = []
@@ -91,11 +92,26 @@ class IBM:
             l = len(self.testing_english[k])
             m = len(self.testing_french[k])
 
-            alignment = []
+            alignment = set()
 
             for i in range(0,m):
                 all_alignments = []
                 for j in range(0,l):
                     all_alignments.append(self.t[(self.testing_french[k][i], self.testing_english[k][j])] * self.q[(j, i+1, l, m)])
-                alignment.append(all_alignments.index(max(all_alignments)))
+                alignment.add((all_alignments.index(max(all_alignments)),i+1))
             test_alignments.append(alignment)
+
+        return test_alignments
+
+    def calculate_aer(self, eval_alignement_path, test_alignments):
+
+        gold_standard = read_naacl_alignments(eval_alignement_path)
+
+        metric = AERSufficientStatistics()
+
+        for gold_alignments, test_alignments in zip(gold_standard, test_alignments):
+            metric.update(sure=gold_alignments[0], probable=gold_alignments[1], predicted=test_alignments)
+
+        aer = metric.aer()
+
+        print("AER: {}".format(aer))
