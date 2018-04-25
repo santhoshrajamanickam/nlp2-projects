@@ -24,21 +24,21 @@ def EM_algorithm(english_sentences, french_sentences):
         for k in range(training_size):
             for i in range(1,len(french_sentences[k])):
 
-                french_word = french_sentences[k][i]
+                french_word = french_sentences[k][i-1]
                 l = len(english_sentences[k])
                 m = len(french_sentences[k])
                 normalization_constant = 0.0
                 precompute_delta = []
 
-                for index in range(1,len(english_sentences[k])):
+                for index in range(0,len(english_sentences[k])):
                     precompute_delta.append(float(q[(index, i+1, l, m)]*t[(french_word, english_sentences[k][index])]))
                 normalization_constant = float(sum(precompute_delta))
                 log_likelihood += math.log(normalization_constant)
 
-                for j in range(1,len(english_sentences[k])):
+                for j in range(0,len(english_sentences[k])):
                     english_word = english_sentences[k][j]
                     # print(j,len(precompute_delta))
-                    delta = precompute_delta[j-1]/normalization_constant
+                    delta = precompute_delta[j]/normalization_constant
 
                     word_counts[(english_word, french_word)] +=  delta
                     english_word_counts[english_word] += delta
