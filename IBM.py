@@ -18,6 +18,7 @@ class IBM:
         self.french_sentences = training_french
         self.testing_english = testing_english
         self.testing_french = testing_french
+        self.likelihoods = []
         self.alpha = alpha # prior value for VI IBM1
 
     def load_test_sentences(self, testing_english, testing_french):
@@ -83,8 +84,11 @@ class IBM:
                 break
             else:
                 previous_likelihood = log_likelihood
+            self.likelihoods.append(log_likelihood)
 
         self.final_likelihood = log_likelihood
+
+
 
     def viterbi_alignment(self):
 
