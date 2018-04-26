@@ -8,9 +8,12 @@ class IBM:
 
     def __init__(self, model, training_english, training_french, testing_english=None, testing_french=None):
         self.model = model
+        self.t = defaultdict(lambda: random.uniform(0, 1)) # translation parameters
         if self.model == 2:
-            self.t = defaultdict(lambda: random.uniform(0, 1)) # translation parameters
             self.q = defaultdict(lambda: random.uniform(0, 1)) # distortion/alignment parameters
+        else:
+            l = 1
+            self.q = defaultdict(lambda: (1/(l+1)))
         self.english_sentences = training_english
         self.french_sentences = training_french
         self.testing_english = testing_english
