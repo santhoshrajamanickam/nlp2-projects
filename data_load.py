@@ -14,24 +14,24 @@ class ParallelCorpus:
         print("Loading Data")
         print("============")
 
-        with open(english_training_path) as file:
+        with open(english_training_path, encoding='utf8') as file:
             for i, line in enumerate(file):
                 sentence = [x.lower() for x in line.split()] # convert all words to lowercase
                 sentence.insert(0,'NULL') # adding a NULL word
                 self.training_english.append(sentence)
 
-        with open(french_training_path) as file:
+        with open(french_training_path, encoding='utf8') as file:
             for i, line in enumerate(file):
                 sentence = [x.lower() for x in line.split()] # convert all words to lowercase
                 self.training_french.append(sentence)
 
-        with open(english_testing_path) as file:
+        with open(english_testing_path, encoding='utf8') as file:
             for i, line in enumerate(file):
                 sentence = [x.lower() for x in line.split()] # convert all words to lowercase
                 sentence.insert(0,'NULL') # adding a NULL word
                 self.testing_english.append(sentence)
 
-        with open(french_testing_path) as file:
+        with open(french_testing_path, encoding='utf8') as file:
             for i, line in enumerate(file):
                 sentence = [x.lower() for x in line.split()] # convert all words to lowercase
                 self.testing_french.append(sentence)
