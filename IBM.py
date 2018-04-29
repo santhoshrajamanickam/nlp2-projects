@@ -2,11 +2,13 @@ from collections import defaultdict
 import random
 import math
 import time
+import numpy as np
+from scipy.special import digamma
 from aer import AERSufficientStatistics, read_naacl_alignments
 
 class IBM:
 
-    def __init__(self, model, training_english, training_french, testing_english=None, testing_french=None, alpha=0.2):
+    def __init__(self, model, training_english, training_french, testing_english=None, testing_french=None, alpha=0.02):
         self.model = model
         self.t = defaultdict(lambda: random.uniform(0, 1)) # translation parameters
         if self.model == 2:
@@ -88,6 +90,43 @@ class IBM:
 
         self.final_likelihood = log_likelihood
 
+
+    def var_inference(self, S):
+
+        print("===========")
+        print("Starting Variational Inference")
+        print("===========")
+
+
+        training_size = len(self.english_sentences)
+        for s in range(S):
+
+            start = time.time()
+            expected_counts = defaultdict(lambda: self.alpha)
+            sum_counts = defaultdict(lambda: 0)
+            for k in range(training_size):
+
+                l = len(self.english_sentences[k])
+                m = len(self.french_sentences[k])
+
+                for i in range(0, m):
+                    french_word = self.french_sentences[k][i]
+                    for j in range(0,l):
+                        english_word = self.english_sentences[k][j]
+                        expected_counts[(english_word, french_word)] += self.t[(french_word, english_word)]
+                        sum_counts[english_word] += self.t[(french_word, english_word)] + self.alpha
+
+            for i, (k,v) in enumerate(expected_counts.items()):
+                print(k,v)
+                if i > 5:
+                    break
+            # update t
+            for keys in list(expected_counts.keys()):
+                lambda_fe = expected_counts[(keys[0], keys[1])]
+                self.t[(keys[1], keys[0])] = np.exp(digamma(lambda_fe) - digamma(sum_counts[keys[0]]))
+
+            time_taken = (time.time() - start)
+            print("Iteration {}: took {} secs".format(s, time_taken))
 
 
     def viterbi_alignment(self):
