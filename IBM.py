@@ -3,7 +3,7 @@ import random
 import math
 import time
 import numpy as np
-from scipy.special import digamma
+from scipy.special import digamma, psi
 from aer import AERSufficientStatistics, read_naacl_alignments
 
 class IBM:
@@ -102,32 +102,66 @@ class IBM:
         for s in range(S):
 
             start = time.time()
-            expected_counts = defaultdict(lambda: self.alpha)
-            sum_counts = defaultdict(lambda: 0)
+
+            word_counts = defaultdict(lambda: 0)
+            english_word_counts = defaultdict(lambda: 0)
+            nr_of_english_word_counts = defaultdict(lambda: 0)
+            alignment_counts  = defaultdict(lambda: 0)
+            french_alignment_counts = defaultdict(lambda: 0)
+
+
             for k in range(training_size):
 
                 l = len(self.english_sentences[k])
                 m = len(self.french_sentences[k])
 
                 for i in range(0, m):
-                    french_word = self.french_sentences[k][i]
-                    for j in range(0,l):
-                        english_word = self.english_sentences[k][j]
-                        expected_counts[(english_word, french_word)] += self.t[(french_word, english_word)]
-                        sum_counts[english_word] += self.t[(french_word, english_word)] + self.alpha
 
-            for i, (k,v) in enumerate(expected_counts.items()):
-                print(k,v)
-                if i > 5:
-                    break
-            # update t
-            for keys in list(expected_counts.keys()):
-                lambda_fe = expected_counts[(keys[0], keys[1])]
-                self.t[(keys[1], keys[0])] = np.exp(digamma(lambda_fe) - digamma(sum_counts[keys[0]]))
+                    french_word = self.french_sentences[k][i]
+
+                    normalization_constant = 0.0
+                    precompute_delta = []
+
+                    for index in range(0, l):
+                        precompute_delta.append(float(self.q[(index, i+1, l, m)]*self.t[(french_word, self.english_sentences[k][index])]))
+                    normalization_constant = float(sum(precompute_delta))
+
+                    for j in range(0, l):
+                        english_word = self.english_sentences[k][j]
+                        delta = precompute_delta[j]/normalization_constant
+
+                        word_counts[(english_word, french_word)] +=  delta
+                        english_word_counts[english_word] += delta
+                        nr_of_english_word_counts[english_word] += 1
+                        alignment_counts[(j, i+1, l, m)] += delta
+                        french_alignment_counts[(i+1, l, m)] += delta
+
+
+            for keys, count in word_counts.items():
+                count_all_fe = english_word_counts[keys[0]]
+                nr_of_f = nr_of_english_word_counts[keys[0]]
+                self.t[(keys[1], keys[0])] = psi(count + self.alpha) - psi(count_all_fe + self.alpha * nr_of_f)
+
+            for keys in alignment_counts.keys():
+                self.q[(keys[0], keys[1], keys[2], keys[3])] = alignment_counts[(keys[0], keys[1], keys[2], keys[3])]/french_alignment_counts[keys[1], keys[2], keys[3]]
+
+
 
             time_taken = (time.time() - start)
-            print("Iteration {}: took {} secs".format(s, time_taken))
+            print("Iteration {}: took {} secs (ELBO: )".format(s, time_taken))
 
+
+    def compute_elbo(self, mle, lambdas_fe, lambda_sum):
+        kl = 0
+        # TODO: fix for current approach without vocabulary size
+        for e in range(english_vocabulary_size):
+            for f in range(french_vocabulary_size):
+                kl_sum = (digamma(t[f,e]) - digamma(sum(t[:,e]) - t[f,e])) * (self.alpha - t[f,e]) + loggamma(t[f,e]) - loggamma(self.alpha)
+                kl_sum += loggamma(self.alpha*F_vocab_size) - loggamma(sum(t[:,e]))
+                kl_e = kl_sum.real
+            kl += kl_e
+
+        return (-kl + mle)
 
     def viterbi_alignment(self):
 
