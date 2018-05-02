@@ -27,10 +27,18 @@ class IBM:
         self.testing_english = testing_english
         self.testing_french = testing_french
 
-    def em_algorithm(self, S):
+    def run_epoch(self, S, approach):
+        '''
+        Started on shared epoch function.
+        Notes:
+        - need to fix VI version
+        - use elbo instead of log likelihood for VI
+        - double-check: is this correct?
+        - what about alignments for VI? Now uses same approach as EM
+        '''
 
         print("===========")
-        print("Starting EM")
+        print("Starting {}".format(approach))
         print("===========")
 
         training_size = len(self.english_sentences)
@@ -39,6 +47,7 @@ class IBM:
         for s in range(S):
             word_counts = defaultdict(lambda: 0)
             english_word_counts = defaultdict(lambda: 0)
+            nr_of_english_word_counts = defaultdict(lambda: 0)
             alignment_counts  = defaultdict(lambda: 0)
             french_alignment_counts = defaultdict(lambda: 0)
 
@@ -60,21 +69,35 @@ class IBM:
                     for index in range(0, l):
                         precompute_delta.append(float(self.q[(index, i+1, l, m)]*self.t[(french_word, self.english_sentences[k][index])]))
                     normalization_constant = float(sum(precompute_delta))
-                    log_likelihood += math.log(normalization_constant)
+                    if approach == 'EM':
+                        log_likelihood += math.log(normalization_constant)
 
                     for j in range(0, l):
                         english_word = self.english_sentences[k][j]
-
                         delta = precompute_delta[j]/normalization_constant
-
                         word_counts[(english_word, french_word)] +=  delta
                         english_word_counts[english_word] += delta
+                        # total count is only used for VI
+                        nr_of_english_word_counts[english_word] += 1
                         alignment_counts[(j, i+1, l, m)] += delta
                         french_alignment_counts[(i+1, l, m)] += delta
 
-                # print("Done sentence {}.".format(k))
-            for keys in word_counts.keys():
-                self.t[(keys[1], keys[0])] = word_counts[(keys[0], keys[1])]/english_word_counts[keys[0]]
+            if approach == 'EM':
+                for keys in word_counts.keys():
+                    self.t[(keys[1], keys[0])] = word_counts[(keys[0], keys[1])]/english_word_counts[keys[0]]
+
+                if (previous_likelihood == log_likelihood):
+                    break
+                else:
+                    previous_likelihood = log_likelihood
+                self.likelihoods.append(log_likelihood)
+
+            if approach == 'VI':
+                for keys, count in word_counts.items():
+                    count_all_fe = english_word_counts[keys[0]]
+                    nr_of_f = nr_of_english_word_counts[keys[0]]
+                    self.t[(keys[1], keys[0])] = psi(count + self.alpha) - psi(count_all_fe + self.alpha * nr_of_f)
+
 
             for keys in alignment_counts.keys():
                 self.q[(keys[0], keys[1], keys[2], keys[3])] = alignment_counts[(keys[0], keys[1], keys[2], keys[3])]/french_alignment_counts[keys[1], keys[2], keys[3]]
@@ -82,73 +105,8 @@ class IBM:
             time_taken = (time.time() - start)
             print("Iteration {}: took {} secs (Log-likelihood: {})".format(s, time_taken, log_likelihood))
 
-            if (previous_likelihood == log_likelihood):
-                break
-            else:
-                previous_likelihood = log_likelihood
-            self.likelihoods.append(log_likelihood)
-
         self.final_likelihood = log_likelihood
-
-
-    def var_inference(self, S):
-
-        print("===========")
-        print("Starting Variational Inference")
-        print("===========")
-
-
-        training_size = len(self.english_sentences)
-        for s in range(S):
-
-            start = time.time()
-
-            word_counts = defaultdict(lambda: 0)
-            english_word_counts = defaultdict(lambda: 0)
-            nr_of_english_word_counts = defaultdict(lambda: 0)
-            alignment_counts  = defaultdict(lambda: 0)
-            french_alignment_counts = defaultdict(lambda: 0)
-
-
-            for k in range(training_size):
-
-                l = len(self.english_sentences[k])
-                m = len(self.french_sentences[k])
-
-                for i in range(0, m):
-
-                    french_word = self.french_sentences[k][i]
-
-                    normalization_constant = 0.0
-                    precompute_delta = []
-
-                    for index in range(0, l):
-                        precompute_delta.append(float(self.q[(index, i+1, l, m)]*self.t[(french_word, self.english_sentences[k][index])]))
-                    normalization_constant = float(sum(precompute_delta))
-
-                    for j in range(0, l):
-                        english_word = self.english_sentences[k][j]
-                        delta = precompute_delta[j]/normalization_constant
-
-                        word_counts[(english_word, french_word)] +=  delta
-                        english_word_counts[english_word] += delta
-                        nr_of_english_word_counts[english_word] += 1
-                        alignment_counts[(j, i+1, l, m)] += delta
-                        french_alignment_counts[(i+1, l, m)] += delta
-
-
-            for keys, count in word_counts.items():
-                count_all_fe = english_word_counts[keys[0]]
-                nr_of_f = nr_of_english_word_counts[keys[0]]
-                self.t[(keys[1], keys[0])] = psi(count + self.alpha) - psi(count_all_fe + self.alpha * nr_of_f)
-
-            for keys in alignment_counts.keys():
-                self.q[(keys[0], keys[1], keys[2], keys[3])] = alignment_counts[(keys[0], keys[1], keys[2], keys[3])]/french_alignment_counts[keys[1], keys[2], keys[3]]
-
-
-
-            time_taken = (time.time() - start)
-            print("Iteration {}: took {} secs (ELBO: )".format(s, time_taken))
+        
 
 
     def compute_elbo(self, mle, lambdas_fe, lambda_sum):

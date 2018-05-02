@@ -13,9 +13,9 @@ num_iteration = 10
 corpus = ParallelCorpus(english_training_filepath, french_training_filepath, \
                         english_testing_filepath, french_testing_filepath)
 
-IBM_model_1 = IBM(model, corpus.training_english, corpus.training_french)
+IBM_model_1 = IBM(model, corpus.training_english[:500], corpus.training_french[:500])
 IBM_model_1.load_test_sentences(corpus.testing_english, corpus.testing_french)
-IBM_model_1.var_inference(5)
+IBM_model_1.run_epoch(5, 'VI')
 test_alignments = IBM_model_1.viterbi_alignment()
 IBM_model_1.calculate_aer(gold_standard_filepath, test_alignments)
 
