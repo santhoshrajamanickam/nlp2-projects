@@ -111,17 +111,7 @@ class IBM:
 
 
 
-    def compute_elbo(self, mle, lambdas_fe, lambda_sum):
-        kl = 0
-        # TODO: fix for current approach without vocabulary size
-        for e in range(english_vocabulary_size):
-            for f in range(french_vocabulary_size):
-                kl_sum = (digamma(t[f,e]) - digamma(sum(t[:,e]) - t[f,e])) * (self.alpha - t[f,e]) + loggamma(t[f,e]) - loggamma(self.alpha)
-                kl_sum += loggamma(self.alpha*F_vocab_size) - loggamma(sum(t[:,e]))
-                kl_e = kl_sum.real
-            kl += kl_e
-
-        return (-kl + mle)
+    
 
     def viterbi_alignment(self):
 
