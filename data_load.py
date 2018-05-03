@@ -9,6 +9,8 @@ class ParallelCorpus:
         self.training_french = []
         self.testing_english = []
         self.testing_french = []
+        self.english_vocab = set()
+        self.french_vocab = set()
 
         print("============")
         print("Loading Data")
@@ -17,13 +19,16 @@ class ParallelCorpus:
         with open(english_training_path, encoding='utf8') as file:
             for i, line in enumerate(file):
                 sentence = [x.lower() for x in line.split()] # convert all words to lowercase
+                self.english_vocab.update(sentence)
                 sentence.insert(0,'NULL') # adding a NULL word
                 self.training_english.append(sentence)
             #self.training_english = self.map_to_unk(20,self.training_english)
+        self.english_vocab.update('NULL')
 
         with open(french_training_path, encoding='utf8') as file:
             for i, line in enumerate(file):
                 sentence = [x.lower() for x in line.split()] # convert all words to lowercase
+                self.french_vocab.update(sentence)
                 self.training_french.append(sentence)
             #self.training_french = self.map_to_unk(20,self.training_french)
 
