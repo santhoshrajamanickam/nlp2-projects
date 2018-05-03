@@ -66,8 +66,14 @@ class IBM:
                     normalization_constant = 0.0
                     precompute_delta = []
 
-                    for index in range(0, l):
-                        precompute_delta.append(float(self.q[(index, i+1, l, m)]*self.t[(french_word, self.english_sentences[k][index])]))
+                    if approach == 'EM':
+                        for index in range(0, l):
+                            precompute_delta.append(float(self.q[(index, i+1, l, m)]*self.t[(french_word, self.english_sentences[k][index])]))
+
+                    if approach == 'VI':
+                        for index in range(0, l):
+                            precompute_delta.append(float(self.q[(index, i+1, l, m)]*self.t[(french_word, self.english_sentences[k][index])]+self.alpha))
+
                     normalization_constant = float(sum(precompute_delta))
                     if approach == 'EM':
                         log_likelihood += math.log(normalization_constant)
@@ -93,10 +99,12 @@ class IBM:
                 self.likelihoods.append(log_likelihood)
 
             if approach == 'VI':
-                for keys, count in word_counts.items():
-                    count_all_fe = english_word_counts[keys[0]]
-                    nr_of_f = nr_of_english_word_counts[keys[0]]
-                    self.t[(keys[1], keys[0])] = psi(count + self.alpha) - psi(count_all_fe + self.alpha * nr_of_f)
+                # for keys, count in word_counts.items():
+                #     count_all_fe = english_word_counts[keys[0]]
+                #     nr_of_f = nr_of_english_word_counts[keys[0]]
+                #     self.t[(keys[1], keys[0])] = psi(count + self.alpha) - psi(count_all_fe + self.alpha * nr_of_f)
+                for j in range(0, l):
+                    self.t[(french_word, self.english_sentences[k][j])] = math.exp(psi(precompute_delta[j]) - psi(sum(precompute_delta)))
 
 
             for keys in alignment_counts.keys():
@@ -106,7 +114,7 @@ class IBM:
             print("Iteration {}: took {} secs (Log-likelihood: {})".format(s, time_taken, log_likelihood))
 
         self.final_likelihood = log_likelihood
-        
+
 
 
     def compute_elbo(self, mle, lambdas_fe, lambda_sum):
