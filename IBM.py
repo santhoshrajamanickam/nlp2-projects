@@ -81,30 +81,37 @@ class IBM:
                     for j in range(0, l):
                         english_word = self.english_sentences[k][j]
                         delta = precompute_delta[j]/normalization_constant
-                        word_counts[(english_word, french_word)] +=  delta
-                        english_word_counts[english_word] += delta
+                        if approach == 'EM':
+                            word_counts[(english_word, french_word)] +=  delta
+                            english_word_counts[english_word] += delta
+                        if approach == 'VI':
+                            word_counts[(english_word, french_word)] += precompute_delta[j]
+                            english_word_counts[english_word] = precompute_delta[j]
+
                         # total count is only used for VI
                         nr_of_english_word_counts[english_word] += 1
                         alignment_counts[(j, i+1, l, m)] += delta
                         french_alignment_counts[(i+1, l, m)] += delta
-
-            if approach == 'EM':
-                for keys in word_counts.keys():
-                    self.t[(keys[1], keys[0])] = word_counts[(keys[0], keys[1])]/english_word_counts[keys[0]]
-
-                if (previous_likelihood == log_likelihood):
-                    break
-                else:
-                    previous_likelihood = log_likelihood
-                self.likelihoods.append(log_likelihood)
 
             if approach == 'VI':
                 # for keys, count in word_counts.items():
                 #     count_all_fe = english_word_counts[keys[0]]
                 #     nr_of_f = nr_of_english_word_counts[keys[0]]
                 #     self.t[(keys[1], keys[0])] = psi(count + self.alpha) - psi(count_all_fe + self.alpha * nr_of_f)
-                for j in range(0, l):
-                    self.t[(french_word, self.english_sentences[k][j])] = math.exp(psi(precompute_delta[j]) - psi(sum(precompute_delta)))
+                for keys, count in word_counts.items():
+                    self.t[(keys[1], self.english_sentences[k][j])] = math.exp(psi(word_counts[(keys[0], keys[1])]) - psi(english_word_counts[keys[0]]))    
+
+            # if approach == 'EM':
+            #     for keys in word_counts.keys():
+            #         self.t[(keys[1], keys[0])] = word_counts[(keys[0], keys[1])]/english_word_counts[keys[0]]
+            #
+            #     if (previous_likelihood == log_likelihood):
+            #         break
+            #     else:
+            #         previous_likelihood = log_likelihood
+            #     self.likelihoods.append(log_likelihood)
+
+
 
 
             for keys in alignment_counts.keys():
