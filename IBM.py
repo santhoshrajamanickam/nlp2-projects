@@ -8,7 +8,7 @@ from aer import AERSufficientStatistics, read_naacl_alignments
 
 class IBM:
 
-    def __init__(self, model, training_english, training_french, testing_english=None, testing_french=None, alpha=0.02):
+    def __init__(self, model, training_english, training_french, testing_english=None, testing_french=None, alpha=0.001):
         self.model = model
         self.t = defaultdict(lambda: random.uniform(0, 1)) # translation parameters
         if self.model == 2:
@@ -28,14 +28,6 @@ class IBM:
         self.testing_french = testing_french
 
     def run_epoch(self, S, approach):
-        '''
-        Started on shared epoch function.
-        Notes:
-        - need to fix VI version
-        - use elbo instead of log likelihood for VI
-        - double-check: is this correct?
-        - what about alignments for VI? Now uses same approach as EM
-        '''
 
         print("===========")
         print("Starting {}".format(approach))
@@ -66,13 +58,8 @@ class IBM:
                     normalization_constant = 0.0
                     precompute_delta = []
 
-                    if approach == 'EM':
-                        for index in range(0, l):
-                            precompute_delta.append(float(self.q[(index, i+1, l, m)]*self.t[(french_word, self.english_sentences[k][index])]))
-
-                    if approach == 'VI':
-                        for index in range(0, l):
-                            precompute_delta.append(float(self.q[(index, i+1, l, m)]*self.t[(french_word, self.english_sentences[k][index])]+self.alpha))
+                    for index in range(0, l):
+                        precompute_delta.append(float(self.q[(index, i+1, l, m)]*self.t[(french_word, self.english_sentences[k][index])]))
 
                     normalization_constant = float(sum(precompute_delta))
                     if approach == 'EM':
@@ -86,7 +73,7 @@ class IBM:
                             english_word_counts[english_word] += delta
                         if approach == 'VI':
                             word_counts[(english_word, french_word)] += precompute_delta[j]
-                            english_word_counts[english_word] = precompute_delta[j]
+                            english_word_counts[english_word] += precompute_delta[j]
 
                         # total count is only used for VI
                         nr_of_english_word_counts[english_word] += 1
@@ -99,7 +86,7 @@ class IBM:
                 #     nr_of_f = nr_of_english_word_counts[keys[0]]
                 #     self.t[(keys[1], keys[0])] = psi(count + self.alpha) - psi(count_all_fe + self.alpha * nr_of_f)
                 for keys, count in word_counts.items():
-                    self.t[(keys[1], self.english_sentences[k][j])] = math.exp(psi(word_counts[(keys[0], keys[1])]) - psi(english_word_counts[keys[0]]))    
+                    self.t[(keys[1], self.english_sentences[k][j])] = math.exp(psi(self.alpha + word_counts[(keys[0], keys[1])]) - psi(english_word_counts[keys[0]]))
 
             # if approach == 'EM':
             #     for keys in word_counts.keys():
