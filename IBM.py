@@ -1,7 +1,9 @@
 from collections import defaultdict
 import math
 import time
+from scipy.special import digamma, psi
 from aer import AERSufficientStatistics, read_naacl_alignments
+
 
 class IBM:
 
@@ -17,7 +19,7 @@ class IBM:
         self.testing_english = corpus.testing_english
         self.testing_french = corpus.testing_french
 
-    def run_epoch(self, S, approach):
+    def run_epoch(self, S, approach, alpha=None):
 
         print("===========")
         print("Starting {}".format(approach))
@@ -28,6 +30,7 @@ class IBM:
         for s in range(S):
             word_counts = defaultdict(lambda: 0)
             english_word_counts = defaultdict(lambda: 0)
+            lambdas = defaultdict(lambda: defaultdict (lambda: alpha))
 
             log_likelihood = 0.0
             start = time.time()
@@ -61,14 +64,29 @@ class IBM:
 
                     for j in range(0, l):
                         english_word = self.english_sentences[k][j]
-                        word_counts[(french_word, english_word)] += \
-                            self.t[(french_word, english_word)]/total_french_counts[french_word]
-                        english_word_counts[english_word] += \
-                            self.t[(french_word, english_word)]/total_french_counts[french_word]
+                        if approach == 'EM':
+                            delta = self.t[(french_word, english_word)] / total_french_counts[french_word]
+                            word_counts[(french_word, english_word)] += delta
+                            english_word_counts[english_word] += delta
+                        else:
+                            delta = self.t[(french_word, english_word)] / total_french_counts[french_word]
+                            lambdas[french_word][english_word] += delta
+                            english_word_counts[english_word] += delta
 
-            for keys in word_counts.keys():
-                self.t[(keys[0], keys[1])] = word_counts[(keys[0], keys[1])]/english_word_counts[keys[1]]
-                # log_likelihood += math.log(self.t[(keys[0], keys[1])])
+            if approach == 'EM':
+                for keys in word_counts.keys():
+                    self.t[(keys[0], keys[1])] = word_counts[(keys[0], keys[1])]/english_word_counts[keys[1]]
+            else:
+
+                for french_word in lambdas.keys():
+                    for english_word in lambdas[french_word].keys():
+                        # english_word_sum = 1
+                        # for other_french_word in lambdas.keys():
+                        #     if other_french_word != french_word:
+                        #         english_word_sum += lambdas[other_french_word][english_word] + alpha
+                        self.t[(french_word, english_word)] = math.exp(
+                            digamma(lambdas[french_word][english_word]+ alpha)
+                            - digamma(english_word_counts[english_word]+alpha))
 
             time_taken = (time.time() - start)
             print("Iteration {}: took {} secs (Log-likelihood: {})".format(s, time_taken, log_likelihood))
