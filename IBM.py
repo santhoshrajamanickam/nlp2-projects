@@ -1,9 +1,6 @@
 from collections import defaultdict
-import random
 import math
 import time
-import numpy as np
-# from scipy.special import digamma, psi
 from aer import AERSufficientStatistics, read_naacl_alignments
 
 class IBM:
@@ -11,9 +8,9 @@ class IBM:
     def __init__(self, model, corpus, limit=None):
         self.model = model
 
-        self.t = defaultdict(lambda: 1/len(corpus.french_vocab)) # translation parameters
+        self.t = defaultdict(lambda: 1/len(corpus.french_vocab))  # translation parameters
         l = 1
-        self.q = defaultdict(lambda: (1/(l+1))) 
+        self.q = defaultdict(lambda: (1/(l+1)))  # distortion/alignment parameters
 
         self.english_sentences = corpus.training_english[:limit]
         self.french_sentences = corpus.training_french[:limit]
@@ -39,23 +36,39 @@ class IBM:
 
                 l = len(self.english_sentences[k])
                 m = len(self.french_sentences[k])
-                total_english_counts = defaultdict(lambda: 0)
+
+                total_french_counts = defaultdict(lambda: 0)
+
+                for i in range(0, m):
+                    french_word = self.french_sentences[k][i]
+                    total_french_counts[french_word] = 0
+                    for j in range(0, l):
+                        total_french_counts[french_word] += self.t[
+                            (french_word, self.english_sentences[k][j])]
 
                 for i in range(0, m):
 
                     french_word = self.french_sentences[k][i]
 
-                    for j in range(0, l):
-                        total_english_counts[self.english_sentences[k][j]] += self.t[(french_word, self.english_sentences[k][j])]
+                    precompute_delta = []
+
+                    for index in range(0, l):
+                        precompute_delta.append(float(
+                            self.q[(index, i + 1, l, m)] * self.t[(french_word, self.english_sentences[k][index])]))
+
+                    normalization_constant = float(sum(precompute_delta))
+                    log_likelihood += math.log(normalization_constant)
 
                     for j in range(0, l):
                         english_word = self.english_sentences[k][j]
-                        word_counts[(french_word, english_word)] += self.t[(french_word, english_word)]/total_english_counts[english_word]
-                        english_word_counts[english_word] += self.t[(french_word, self.english_sentences[k][j])]/total_english_counts[english_word]
+                        word_counts[(french_word, english_word)] += \
+                            self.t[(french_word, english_word)]/total_french_counts[french_word]
+                        english_word_counts[english_word] += \
+                            self.t[(french_word, english_word)]/total_french_counts[french_word]
 
             for keys in word_counts.keys():
                 self.t[(keys[0], keys[1])] = word_counts[(keys[0], keys[1])]/english_word_counts[keys[1]]
-                log_likelihood += math.log(self.t[(keys[0], keys[1])])
+                # log_likelihood += math.log(self.t[(keys[0], keys[1])])
 
             time_taken = (time.time() - start)
             print("Iteration {}: took {} secs (Log-likelihood: {})".format(s, time_taken, log_likelihood))
