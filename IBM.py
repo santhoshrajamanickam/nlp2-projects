@@ -171,12 +171,23 @@ class IBM:
 
             alignment = set()
 
-            for i in range(0,m):
-                all_alignments = []
-                for j in range(0,l):
-                    all_alignments.append(self.t[(self.testing_french[k][i], self.testing_english[k][j])] * self.q[(j, i+1, l, m)])
-                alignment.add((all_alignments.index(max(all_alignments)),i+1))
-            test_alignments.append(alignment)
+            if self.model == 'IBM1':
+                for i in range(0, m):
+                    all_alignments = []
+                    for j in range(0, l):
+                        all_alignments.append(
+                            self.t[(self.testing_french[k][i], self.testing_english[k][j])] * self.q[(j, i + 1, l, m)])
+                    alignment.add((all_alignments.index(max(all_alignments)), i + 1))
+                test_alignments.append(alignment)
+            else:
+                for i in range(0, m):
+                    all_alignments = []
+                    for j in range(0, l):
+                        jump = self.jump(j, i, l, m)
+                        all_alignments.append(
+                            self.t[(self.testing_french[k][i], self.testing_english[k][j])] * self.q[0, int(jump)])
+                    alignment.add((all_alignments.index(max(all_alignments)), i + 1))
+                test_alignments.append(alignment)
 
         return test_alignments
 
