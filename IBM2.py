@@ -6,18 +6,41 @@ import numpy as np
 from aer import AERSufficientStatistics, read_naacl_alignments
 
 class IBM2:
-    def __init__(self, training_english, training_french, testing_english=None, testing_french=None):
-        self.t = defaultdict(lambda: random.uniform(0, 1)) # translation parameters
+    def __init__(self, training_english, training_french, vocab_size, testing_english=None, testing_french=None, initialization=None, prelearned=None):
+        if initialization == 'uniform':
+            self.t = 1.0/vocab_size
+        elif initialization == 'ibm1':
+            if prelearned == None:
+                raise Exception('No pretrained translation parameters are given!')
+            self.t = prelearned
+        else:
+            self.t = defaultdict(lambda: random.uniform(0, 1)) # translation parameters, default random
         self.q = defaultdict(lambda: random.uniform(0, 1)) # distortion/alignment parameters
         self.english_sentences = training_english
         self.french_sentences = training_french
         self.testing_english = testing_english
         self.testing_french = testing_french
         self.likelihoods = []
+        self.max_jump = 100
+        self.jump_dist = 1. / (2 * self.max_jump) * np.ones((1, 2 * self.max_jump))
+
 
     def load_test_sentences(self, testing_english, testing_french):
         self.testing_english = testing_english
         self.testing_french = testing_french
+
+    def get_voc_size(self):
+        english_training = TextData()
+
+
+    def jump(self,i, j, m, n):
+        max_jump = 99
+        jump = np.floor(i - (j * m / n))
+        if jump > max_jump:
+            jump = max_jump
+        elif jump < -max_jump:
+            jump = -max_jump
+        return jump + max_jump
 
     def run_epoch(self, S):
 
@@ -50,7 +73,8 @@ class IBM2:
                     precompute_delta = []
 
                     for index in range(0, l):
-                        precompute_delta.append(float(self.q[(index, i+1, l, m)]*self.t[(french_word, self.english_sentences[k][index])]))
+                        q = self.jump(index,i,l,m)
+                        precompute_delta.append(float(self.jump_dist[0,int(q)]*self.t[(french_word, self.english_sentences[k][index])]))
 
                     normalization_constant = float(sum(precompute_delta))
                     log_likelihood += math.log(normalization_constant)
@@ -95,7 +119,8 @@ class IBM2:
             for i in range(0,m):
                 all_alignments = []
                 for j in range(0,l):
-                    all_alignments.append(self.t[(self.testing_french[k][i], self.testing_english[k][j])] * self.q[(j, i+1, l, m)])
+                    q = self.jump(j,i,l,m)
+                    all_alignments.append(self.t[(self.testing_french[k][i], self.testing_english[k][j])] * self.jump_dist[0,int(q)])
                 alignment.add((all_alignments.index(max(all_alignments)),i+1))
             test_alignments.append(alignment)
 
@@ -113,3 +138,20 @@ class IBM2:
         aer = metric.aer()
 
         print("AER: {}".format(aer))
+
+    def calculate_perplexity(self):
+        perplexity = 0
+        training_size = len(self.english_sentences)
+        for k in range(training_size):
+            m = len(self.french_sentences[k])
+            l = len(self.english_sentences[k])
+            total_prob = 1
+            for i in range(m):
+                prob = 0
+                french_word = self.french_sentences[k][i]
+                for j in range(l):
+                    english_word = self.english_sentences[k][j]
+                    prob += self.t[(french_word, english_word)] * jump(j,i,l,m)
+                total_prob *= prob
+            perplexity += np.log2(total_prob)
+        return perplexity
