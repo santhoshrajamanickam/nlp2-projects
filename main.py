@@ -14,9 +14,9 @@ num_iteration = 14
 corpus = ParallelCorpus(english_training_filepath, french_training_filepath, \
                         english_testing_filepath, french_testing_filepath)
 
-vocab_size = TextData("training/hansards.36.2.e").vocab_size
+vocab_size = TextData("training/hansards.36.2.f").vocab_size
 
-IBM_model_2 = IBM2(corpus.training_english, corpus.training_french, vocab_size, initialization='uniform')
+IBM_model_2 = IBM2(corpus.training_english[:10000], corpus.training_french[:10000], vocab_size, initialization='uniform')
 IBM_model_2.load_test_sentences(corpus.testing_english, corpus.testing_french)
 IBM_model_2.run_epoch(num_iteration)
 test_alignments = IBM_model_2.viterbi_alignment()

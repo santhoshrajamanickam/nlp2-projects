@@ -22,7 +22,7 @@ class IBM2:
         self.testing_french = testing_french
         self.likelihoods = []
         self.max_jump = 100
-        self.jump_dist = 1. / (2 * self.max_jump) * np.ones((1, 2 * self.max_jump))
+        self.q = 1. / (2 * self.max_jump) * np.ones((1, 2 * self.max_jump))
 
 
     def load_test_sentences(self, testing_english, testing_french):
@@ -57,6 +57,8 @@ class IBM2:
             alignment_counts  = defaultdict(lambda: 0)
             french_alignment_counts = defaultdict(lambda: 0)
 
+            jump_counts = np.zeros((1, 2 * self.max_jump), dtype=np.float)
+
             log_likelihood = 0.0
             start = time.time()
 
@@ -73,13 +75,14 @@ class IBM2:
                     precompute_delta = []
 
                     for index in range(0, l):
-                        q = self.jump(index,i,l,m)
-                        precompute_delta.append(float(self.jump_dist[0,int(q)]*self.t[(french_word, self.english_sentences[k][index])]))
+                        jump = self.jump(index,i,l,m)
+                        precompute_delta.append(float(self.q[0,int(jump)]*self.t[(french_word, self.english_sentences[k][index])]))
 
                     normalization_constant = float(sum(precompute_delta))
                     log_likelihood += math.log(normalization_constant)
 
                     for j in range(0, l):
+                        jump_value = self.jump(j,i,l,m)
                         english_word = self.english_sentences[k][j]
                         delta = precompute_delta[j]/normalization_constant
                         word_counts[(english_word, french_word)] +=  delta
@@ -88,12 +91,13 @@ class IBM2:
                         alignment_counts[(j, i+1, l, m)] += delta
                         french_alignment_counts[(i+1, l, m)] += delta
 
+                        jump_counts[0,int(jump_value)] += delta
+
             for keys in word_counts.keys():
                 self.t[(keys[1], keys[0])] = word_counts[(keys[0], keys[1])]/english_word_counts[keys[0]]
 
-
-            for keys in alignment_counts.keys():
-                self.q[(keys[0], keys[1], keys[2], keys[3])] = alignment_counts[(keys[0], keys[1], keys[2], keys[3])]/french_alignment_counts[keys[1], keys[2], keys[3]]
+            # update q
+            self.q = 1./float(np.sum(jump_counts)) * jump_counts
 
             time_taken = (time.time() - start)
             print("Iteration {}: took {} secs (Log-likelihood: {})".format(s, time_taken, log_likelihood))
@@ -119,8 +123,8 @@ class IBM2:
             for i in range(0,m):
                 all_alignments = []
                 for j in range(0,l):
-                    q = self.jump(j,i,l,m)
-                    all_alignments.append(self.t[(self.testing_french[k][i], self.testing_english[k][j])] * self.jump_dist[0,int(q)])
+                    jump = self.jump(j,i,l,m)
+                    all_alignments.append(self.t[(self.testing_french[k][i], self.testing_english[k][j])] * self.q[0,int(jump)])
                 alignment.add((all_alignments.index(max(all_alignments)),i+1))
             test_alignments.append(alignment)
 

@@ -16,7 +16,7 @@ class TextData:
         self._read()
 
     def _read(self):
-        with open(self._fname, "r") as fh:
+        with open(self._fname, "r", encoding='utf8') as fh:
             for line in fh:
                 tokens = line.strip().lower().split()
                 self._data.append(tokens)
