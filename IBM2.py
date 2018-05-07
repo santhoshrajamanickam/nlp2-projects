@@ -8,7 +8,7 @@ from aer import AERSufficientStatistics, read_naacl_alignments
 class IBM2:
     def __init__(self, training_english, training_french, vocab_size, testing_english=None, testing_french=None, initialization=None, prelearned=None):
         if initialization == 'uniform':
-            self.t = 1.0/vocab_size
+            self.t = defaultdict(lambda: 1.0/vocab_size)
         elif initialization == 'ibm1':
             if prelearned == None:
                 raise Exception('No pretrained translation parameters are given!')
