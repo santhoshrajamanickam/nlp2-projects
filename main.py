@@ -1,6 +1,7 @@
 from data_load import ParallelCorpus
 from IBM import IBM
 
+
 english_training_filepath = "./training/hansards.36.2.e"
 french_training_filepath = "./training/hansards.36.2.f"
 english_testing_filepath = "./validation/dev.e"

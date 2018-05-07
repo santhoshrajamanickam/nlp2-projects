@@ -43,7 +43,6 @@ class ParallelCorpus:
                 sentence = [x.lower() for x in line.split()] # convert all words to lowercase
                 self.testing_french.append(sentence)
 
-
         print("Number of English sentences in the training set: {}".format(len(self.training_english)))
         print("Number of French sentences in the training set: {}".format(len(self.training_french)))
         print("Number of English sentences in the testing set: {}".format(len(self.testing_english)))
