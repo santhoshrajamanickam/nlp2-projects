@@ -11,7 +11,12 @@ num_iteration = 10
 corpus = ParallelCorpus(english_training_filepath, french_training_filepath, \
                         english_testing_filepath, french_testing_filepath)
 
-IBM_model_1 = IBM('IBM1', corpus, limit=1000)
-IBM_model_1.run_epoch(num_iteration,'EM')
+IBM_model_1 = IBM('IBM1', corpus, limit=500)
+IBM_model_1.run_epoch(num_iteration,'VM', alpha=0.001)
 test_alignments = IBM_model_1.viterbi_alignment()
 IBM_model_1.calculate_aer(gold_standard_filepath, test_alignments)
+
+# IBM_model_2 = IBM('IBM2', corpus, limit=500)
+# IBM_model_2.run_epoch(num_iteration, 'EM')
+# test_alignments = IBM_model_2.viterbi_alignment()
+# IBM_model_2.calculate_aer(gold_standard_filepath, test_alignments)

@@ -1,23 +1,49 @@
 from collections import defaultdict
 import math
+import random
 import time
-from scipy.special import digamma, psi
+import numpy as np
+from scipy.special import digamma, gammaln
+from scipy.stats import loggamma
 from aer import AERSufficientStatistics, read_naacl_alignments
 
 
 class IBM:
 
-    def __init__(self, model, corpus, limit=None):
+    def __init__(self, model, corpus, limit=None, initialization='random', pretrained_t=None):
         self.model = model
+        self.initialization = initialization
 
-        self.t = defaultdict(lambda: 1/len(corpus.french_vocab))  # translation parameters
-        l = 1
-        self.q = defaultdict(lambda: (1/(l+1)))  # distortion/alignment parameters
+        if self.model == 'IBM1':
+            self.t = defaultdict(lambda: 1 / len(corpus.french_vocab))  # translation parameters
+            l = 1
+            self.q = defaultdict(lambda: (1 / (l + 1)))  # distortion/alignment parameters
+        elif self.model == 'IBM2':
+            self.max_jump = 100
+            if self.initialization == 'uniform':
+                self.t = defaultdict(lambda: 1 / len(corpus.french_vocab))  # translation parameters
+                l = 1
+                self.q = defaultdict(lambda: (1 / (l + 1)))  # distortion/alignment parameters
+            elif self.initialization == 'random':
+                self.t = defaultdict(lambda: random.uniform(0, 1))  # translation parameters
+                self.q = 1. / (2 * self.max_jump) * np.ones((1, 2 * self.max_jump))
+            elif self.initialization == 'IBM1':
+                self.t = pretrained_t  # translation parameters
+                self.q = 1. / (2 * self.max_jump) * np.ones((1, 2 * self.max_jump))  # distortion/alignment parameters
 
         self.english_sentences = corpus.training_english[:limit]
         self.french_sentences = corpus.training_french[:limit]
         self.testing_english = corpus.testing_english
         self.testing_french = corpus.testing_french
+
+    def jump(self, i, j, m, n):
+        max_jump = 99
+        jump = np.floor(i - (j * m / n))
+        if jump > max_jump:
+            jump = max_jump
+        elif jump < -max_jump:
+            jump = -max_jump
+        return jump + max_jump
 
     def run_epoch(self, S, approach, alpha=None):
 
@@ -28,9 +54,18 @@ class IBM:
         training_size = len(self.english_sentences)
 
         for s in range(S):
-            word_counts = defaultdict(lambda: 0)
-            english_word_counts = defaultdict(lambda: 0)
-            lambdas = defaultdict(lambda: defaultdict (lambda: alpha))
+            if approach == 'EM':
+                word_counts = defaultdict(lambda: 0)
+                english_word_counts = defaultdict(lambda: 0)
+            else:
+                lambdas = defaultdict(lambda: defaultdict (lambda: alpha))
+                sum_lambdas = defaultdict(lambda: alpha)
+                elbo = 0.0
+
+            if self.model == 'IBM2':
+                alignment_counts = defaultdict(lambda: 0)
+                french_alignment_counts = defaultdict(lambda: 0)
+                jump_counts = np.zeros((1, 2 * self.max_jump), dtype=np.float)
 
             log_likelihood = 0.0
             start = time.time()
@@ -40,56 +75,89 @@ class IBM:
                 l = len(self.english_sentences[k])
                 m = len(self.french_sentences[k])
 
-                total_french_counts = defaultdict(lambda: 0)
+                if self.model == 'IBM1':
+                    total_french_counts = defaultdict(lambda: 0)
+
+                    for i in range(0, m):
+                        french_word = self.french_sentences[k][i]
+                        total_french_counts[french_word] = 0
+                        for j in range(0, l):
+                            total_french_counts[french_word] += self.t[
+                                (french_word, self.english_sentences[k][j])]
 
                 for i in range(0, m):
                     french_word = self.french_sentences[k][i]
-                    total_french_counts[french_word] = 0
-                    for j in range(0, l):
-                        total_french_counts[french_word] += self.t[
-                            (french_word, self.english_sentences[k][j])]
-
-                for i in range(0, m):
-
-                    french_word = self.french_sentences[k][i]
-
                     precompute_delta = []
 
-                    for index in range(0, l):
-                        precompute_delta.append(float(
-                            self.q[(index, i + 1, l, m)] * self.t[(french_word, self.english_sentences[k][index])]))
+                    if self.model == 'IBM1':
+                        for index in range(0, l):
+                            precompute_delta.append(float(
+                                self.q[(index, i + 1, l, m)] * self.t[(french_word, self.english_sentences[k][index])]))
+                    else:
+                        for index in range(0, l):
+                            jump = self.jump(index, i, l, m)
+                            precompute_delta.append(
+                                float(self.q[0, int(jump)] * self.t[(french_word, self.english_sentences[k][index])]))
 
                     normalization_constant = float(sum(precompute_delta))
                     log_likelihood += math.log(normalization_constant)
 
-                    for j in range(0, l):
-                        english_word = self.english_sentences[k][j]
-                        if approach == 'EM':
-                            delta = self.t[(french_word, english_word)] / total_french_counts[french_word]
+                    if self.model == 'IBM1':
+                        for j in range(0, l):
+                            english_word = self.english_sentences[k][j]
+                            if approach == 'EM':
+                                delta = self.t[(french_word, english_word)] / total_french_counts[french_word]
+                                word_counts[(french_word, english_word)] += delta
+                                english_word_counts[english_word] += delta
+                            else:
+                                delta = self.t[(french_word, english_word)] / total_french_counts[french_word]
+                                lambdas[french_word][english_word] += delta
+                                sum_lambdas[english_word] += delta
+                    if self.model == 'IBM2':
+                        for j in range(0, l):
+                            english_word = self.english_sentences[k][j]
+                            # jump_value = self.jump(j, i, l, m)
+                            delta = precompute_delta[j] / normalization_constant
                             word_counts[(french_word, english_word)] += delta
                             english_word_counts[english_word] += delta
-                        else:
-                            delta = self.t[(french_word, english_word)] / total_french_counts[french_word]
-                            lambdas[french_word][english_word] += delta
-                            english_word_counts[english_word] += delta
+                            jump_counts[0, int(self.jump(j, i, l, m))] += delta
+                            # alignment_counts[(j, i + 1, l, m)] += delta
+                            # french_alignment_counts[(i + 1, l, m)] += delta
 
             if approach == 'EM':
                 for keys in word_counts.keys():
                     self.t[(keys[0], keys[1])] = word_counts[(keys[0], keys[1])]/english_word_counts[keys[1]]
             else:
-
                 for french_word in lambdas.keys():
                     for english_word in lambdas[french_word].keys():
-                        # english_word_sum = 1
-                        # for other_french_word in lambdas.keys():
-                        #     if other_french_word != french_word:
-                        #         english_word_sum += lambdas[other_french_word][english_word] + alpha
                         self.t[(french_word, english_word)] = math.exp(
-                            digamma(lambdas[french_word][english_word]+ alpha)
-                            - digamma(english_word_counts[english_word]+alpha))
+                            digamma(lambdas[french_word][english_word])
+                            - digamma(sum_lambdas[english_word]))
 
+                elbo += log_likelihood
+                sum_lambda = 0
+                sum_alpha = 0
+                for french_word in lambdas.keys():
+                    for english_word in lambdas[french_word].keys():
+                        # print(lambdas[french_word][english_word])
+                        elbo += math.log(self.t[(french_word,english_word)])*(alpha - lambdas[french_word][english_word]) \
+                                + gammaln(lambdas[french_word][english_word]) - gammaln(alpha)
+                        sum_lambda += lambdas[french_word][english_word]
+                    sum_alpha += alpha
+
+                elbo += gammaln(sum_alpha)
+                elbo -= gammaln(sum_lambda)
+
+            if self.model == 'IBM2':
+                self.q = 1. / float(np.sum(jump_counts)) * jump_counts
+                
             time_taken = (time.time() - start)
-            print("Iteration {}: took {} secs (Log-likelihood: {})".format(s, time_taken, log_likelihood))
+            if approach == 'EM':
+                print("Iteration {}: took {} secs (Log-likelihood: {})".format(s, time_taken, log_likelihood))
+            else:
+                print("Iteration {}: took {} secs (ELBO: {})".format(s, time_taken, elbo))
+
+        return self.t
 
     def viterbi_alignment(self):
 
