@@ -4,7 +4,6 @@ import random
 import time
 import numpy as np
 from scipy.special import digamma, gammaln
-from scipy.stats import loggamma
 from aer import AERSufficientStatistics, read_naacl_alignments
 
 
@@ -30,6 +29,9 @@ class IBM:
             elif self.initialization == 'IBM1':
                 self.t = pretrained_t  # translation parameters
                 self.q = 1. / (2 * self.max_jump) * np.ones((1, 2 * self.max_jump))  # distortion/alignment parameters
+
+        self.log_likelihood = 0
+        self.elbo = 0
 
         self.english_sentences = corpus.training_english[:limit]
         self.french_sentences = corpus.training_french[:limit]
@@ -58,13 +60,11 @@ class IBM:
                 word_counts = defaultdict(lambda: 0)
                 english_word_counts = defaultdict(lambda: 0)
             else:
-                lambdas = defaultdict(lambda: defaultdict (lambda: alpha))
-                sum_lambdas = defaultdict(lambda: alpha)
+                sum_lambdas = defaultdict(lambda: defaultdict (lambda: alpha))
+                # sum_lambdas = defaultdict(lambda: alpha)
                 elbo = 0.0
 
             if self.model == 'IBM2':
-                alignment_counts = defaultdict(lambda: 0)
-                french_alignment_counts = defaultdict(lambda: 0)
                 jump_counts = np.zeros((1, 2 * self.max_jump), dtype=np.float)
 
             log_likelihood = 0.0
@@ -111,42 +111,71 @@ class IBM:
                                 english_word_counts[english_word] += delta
                             else:
                                 delta = self.t[(french_word, english_word)] / total_french_counts[french_word]
-                                lambdas[french_word][english_word] += delta
-                                sum_lambdas[english_word] += delta
+                                # lambdas[french_word][english_word] += delta
+                                sum_lambdas[english_word][french_word] += delta
                     if self.model == 'IBM2':
                         for j in range(0, l):
                             english_word = self.english_sentences[k][j]
-                            # jump_value = self.jump(j, i, l, m)
                             delta = precompute_delta[j] / normalization_constant
                             word_counts[(french_word, english_word)] += delta
                             english_word_counts[english_word] += delta
                             jump_counts[0, int(self.jump(j, i, l, m))] += delta
-                            # alignment_counts[(j, i + 1, l, m)] += delta
-                            # french_alignment_counts[(i + 1, l, m)] += delta
 
             if approach == 'EM':
                 for keys in word_counts.keys():
                     self.t[(keys[0], keys[1])] = word_counts[(keys[0], keys[1])]/english_word_counts[keys[1]]
             else:
-                for french_word in lambdas.keys():
-                    for english_word in lambdas[french_word].keys():
+                for english_word in sum_lambdas.keys():
+                    target_norm = digamma(sum(sum_lambdas[english_word].values()))
+                    for french_word in sum_lambdas[english_word].keys():
                         self.t[(french_word, english_word)] = math.exp(
-                            digamma(lambdas[french_word][english_word])
-                            - digamma(sum_lambdas[english_word]))
+                            digamma(sum_lambdas[english_word][french_word]) - target_norm)
 
-                elbo += log_likelihood
-                sum_lambda = 0
-                sum_alpha = 0
-                for french_word in lambdas.keys():
-                    for english_word in lambdas[french_word].keys():
-                        # print(lambdas[french_word][english_word])
-                        elbo += math.log(self.t[(french_word,english_word)])*(alpha - lambdas[french_word][english_word]) \
-                                + gammaln(lambdas[french_word][english_word]) - gammaln(alpha)
-                        sum_lambda += lambdas[french_word][english_word]
-                    sum_alpha += alpha
 
-                elbo += gammaln(sum_alpha)
-                elbo -= gammaln(sum_lambda)
+                # for french_word in lambdas.keys():
+                #     for english_word in lambdas[french_word].keys():
+                #         self.t[(french_word, english_word)] = math.exp(
+                #             digamma(lambdas[french_word][english_word])
+                #             - digamma(sum_lambdas[english_word]))
+
+                # elbo += log_likelihood
+                # sum_lambda = 0
+                # sum_alpha = 0
+                kl_sum = 0
+
+                for english_word in sum_lambdas.keys():
+
+                    theta_sum = 0
+                    sum_lambda = 0
+                    sum_alpha = 0
+                    target_norm = digamma(sum(sum_lambdas[english_word].values()))
+
+                    for french_word in sum_lambdas[english_word].keys():
+                        sufficient_statistic = digamma(sum_lambdas[english_word][french_word]) - target_norm
+                        theta_sum += sufficient_statistic * \
+                                     (alpha - sum_lambdas[english_word][french_word]) + \
+                                     gammaln(sum_lambdas[english_word][french_word]) - gammaln(alpha)
+                        sum_alpha += alpha
+                        sum_lambda += sum_lambdas[english_word][french_word]
+
+                    kl_divergence = theta_sum + gammaln(sum_alpha) + gammaln(sum_lambda)
+                    kl_sum += kl_divergence
+
+                self.elbo = log_likelihood + kl_sum
+
+
+                # for french_word in lambdas.keys():
+                #     for english_word in lambdas[french_word].keys():
+                #         # print(lambdas[french_word][english_word])
+                #         kl_sum += math.log(self.t[(french_word,english_word)])*(alpha - lambdas[french_word][english_word]) \
+                #                 + loggamma(lambdas[french_word][english_word]) - loggamma(alpha)
+                #         sum_lambda += loggamma(lambdas[french_word][english_word])
+                #         sum_alpha += loggamma(alpha)
+                #
+                # kl_sum += sum_alpha
+                # kl_sum -= sum_lambda
+                #
+                # elbo = log_likelihood - kl_sum.real
 
             if self.model == 'IBM2':
                 self.q = 1. / float(np.sum(jump_counts)) * jump_counts
@@ -155,7 +184,7 @@ class IBM:
             if approach == 'EM':
                 print("Iteration {}: took {} secs (Log-likelihood: {})".format(s, time_taken, log_likelihood))
             else:
-                print("Iteration {}: took {} secs (ELBO: {})".format(s, time_taken, elbo))
+                print("Iteration {}: took {} secs (ELBO: {})".format(s, time_taken, self.elbo))
 
         return self.t
 
