@@ -216,3 +216,15 @@ class IBM:
         self.aer.append(aer)
 
         print("AER: {}".format(aer))
+
+    def write_naacl_format(self, test_alignments, path):
+
+        naacl_file = open(path, 'w')
+        for index, item in enumerate(test_alignments):
+            for elements in item:
+                e, f = elements
+                if e == 0:
+                    e = 1
+                naacl_file.write(str(index+1) + ' ' + str(e) + ' ' + str(f) + "\n")
+                # print(index, e, f)
+        naacl_file.close()
