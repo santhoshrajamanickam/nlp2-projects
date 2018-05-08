@@ -12,7 +12,11 @@ num_iteration = 10
 corpus = ParallelCorpus(english_training_filepath, french_training_filepath, \
                         english_testing_filepath, french_testing_filepath)
 
-IBM_model_1_EM = IBM('IBM1', corpus, gold_standard=gold_standard_filepath, limit=10)
+
+print("==============")
+print("IBM_model_1_EM")
+print("==============")
+IBM_model_1_EM = IBM('IBM1', corpus, gold_standard=gold_standard_filepath)
 IBM_model_1_EM.run_epoch(num_iteration,'EM')
 final_alignment = IBM_model_1_EM.viterbi_alignment()
 IBM_model_1_EM.write_naacl_format(final_alignment,'./output/ibm1.mle.naacl')
@@ -33,7 +37,11 @@ for item in IBM_model_1_EM.aer:
     aer_file.write("%s " % item)
 aer_file.write("\n\n")
 
-IBM_model_1_Bayesian = IBM('IBM1', corpus, gold_standard=gold_standard_filepath, limit=10)
+
+print("====================")
+print("IBM_model_1_Bayesian")
+print("====================")
+IBM_model_1_Bayesian = IBM('IBM1', corpus, gold_standard=gold_standard_filepath)
 IBM_model_1_Bayesian.run_epoch(num_iteration,'VI', alpha=0.001)
 final_alignment = IBM_model_1_Bayesian.viterbi_alignment()
 IBM_model_1_Bayesian.write_naacl_format(final_alignment,'./output/ibm1.vb.naacl')
@@ -62,7 +70,11 @@ for item in IBM_model_1_Bayesian.elbo:
     elbo_file.write("%s " % item)
 elbo_file.write("\n\n")
 
-IBM_model_2_EM_uniform = IBM('IBM2', corpus, gold_standard=gold_standard_filepath, limit=10, initialization='uniform')
+
+print("======================")
+print("IBM_model_2_EM_uniform")
+print("======================")
+IBM_model_2_EM_uniform = IBM('IBM2', corpus, gold_standard=gold_standard_filepath, initialization='uniform')
 IBM_model_2_EM_uniform.run_epoch(num_iteration,'EM')
 final_alignment = IBM_model_2_EM_uniform.viterbi_alignment()
 IBM_model_2_EM_uniform.write_naacl_format(final_alignment,'./output/ibm2.mle.uniform.naacl')
@@ -81,7 +93,10 @@ for item in IBM_model_2_EM_uniform.aer:
     aer_file.write("%s " % item)
 aer_file.write("\n\n")
 
-IBM_model_2_EM_random = IBM('IBM2', corpus, gold_standard=gold_standard_filepath, limit=10, initialization='random')
+print("=====================")
+print("IBM_model_2_EM_random")
+print("=====================")
+IBM_model_2_EM_random = IBM('IBM2', corpus, gold_standard=gold_standard_filepath, initialization='random')
 IBM_model_2_EM_random.run_epoch(num_iteration,'EM')
 final_alignment = IBM_model_2_EM_random.viterbi_alignment()
 IBM_model_2_EM_random.write_naacl_format(final_alignment,'./output/ibm2.mle.random.naacl')
@@ -100,7 +115,10 @@ for item in IBM_model_2_EM_random.aer:
     aer_file.write("%s " % item)
 aer_file.write("\n\n")
 
-IBM_model_2_EM_pretrained = IBM('IBM2', corpus, gold_standard=gold_standard_filepath, limit=10, initialization='IBM1', pretrained_t=IBM_model_1_EM.t)
+print("=========================")
+print("IBM_model_2_EM_pretrained")
+print("=========================")
+IBM_model_2_EM_pretrained = IBM('IBM2', corpus, gold_standard=gold_standard_filepath, initialization='IBM1', pretrained_t=IBM_model_1_EM.t)
 IBM_model_2_EM_pretrained.run_epoch(num_iteration,'EM')
 final_alignment = IBM_model_2_EM_pretrained.viterbi_alignment()
 IBM_model_2_EM_pretrained.write_naacl_format(final_alignment,'./output/ibm2.mle.pretrained.naacl')
