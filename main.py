@@ -9,7 +9,7 @@ french_training_filepath = "./training/hansards.36.2.f"
 english_testing_filepath = "./validation/dev.e"
 french_testing_filepath = "./validation/dev.f"
 gold_standard_filepath = "./validation/dev.wa.nonullalign"
-num_iteration = 20
+num_iteration = 12
 
 corpus = ParallelCorpus(english_training_filepath, french_training_filepath, \
                         english_testing_filepath, french_testing_filepath)
