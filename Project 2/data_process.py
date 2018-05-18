@@ -1,7 +1,6 @@
 from mosestokenizer import *
 
-
-def process_data(data):
+def load_data(data):
     with open(data, 'r') as f:
         return f.read().splitlines()
 
@@ -13,17 +12,19 @@ def write_file(data, file):
         file.write('\n')
     file.close()
 
-english_train = process_data('data/train/train.en')
-french_train = process_data('data/train/train.fr')
+def tokenize(data, language):
+    tokenizer = MosesTokenizer(language)
+    tokenized = [tokenizer(sent) for sent in data]
+    tokenizer.close()
+    return tokenized
 
-english_tokenizer = MosesTokenizer('en')
-french_tokenizer = MosesTokenizer('fr')
+english_train = load_data('data/train/train.en')
+french_train = load_data('data/train/train.fr')
 
-english_tokenized = [english_tokenizer(sent) for sent in english_train]
-french_tokenized = [french_tokenizer(sent) for sent in french_train]
 
-english_tokenizer.close()
-french_tokenizer.close()
+english_tokenized = tokenize(english_train, 'en')
+french_tokenized = tokenize(french_train, 'fr')
+
 
 english_data = [[word.lower() for word in sent] for sent in english_tokenized]
 french_data = [[word.lower() for word in sent] for sent in french_tokenized]
