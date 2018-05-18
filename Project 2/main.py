@@ -3,15 +3,9 @@ from train import *
 from lang import Lang
 from data_process import load_data, tokenize
 
-import torch
-import torch.nn as nn
-from torch import optim
-import torch.nn.functional as F
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 # hyperparameters
-word_embedding_size = 256
-pos_embedding_size = 20
+word_embedding_size = 512
+pos_embedding_size = 50
 hidden_size = word_embedding_size + pos_embedding_size
 maximum_length = 50
 

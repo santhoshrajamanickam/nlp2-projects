@@ -23,7 +23,6 @@ def epoch(en,fr,sentences, encoder, decoder, n_iters, max_length, print_every=10
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-
     training_pairs = [tensorsFromPair(en,fr,random.choice(sentences))
                       for i in range(n_iters)]
 
@@ -31,12 +30,10 @@ def epoch(en,fr,sentences, encoder, decoder, n_iters, max_length, print_every=10
 
     for iter in range(1, n_iters + 1):
         training_pair = training_pairs[iter - 1]
-
         input_tensor = training_pair[0]
         if len(input_tensor) > max_length:
             continue
         target_tensor = training_pair[1]
-
         loss = train(input_tensor, target_tensor, encoder,
                      decoder, encoder_optimizer, decoder_optimizer, criterion, max_length)
         print_loss_total += loss
@@ -60,17 +57,10 @@ def epoch(en,fr,sentences, encoder, decoder, n_iters, max_length, print_every=10
     showPlot(plot_losses)
 
 
-teacher_forcing_ratio = 0.5
-
-
-
-
-
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio = 0.5):
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
     loss = 0
-
     target_length = target_tensor.size(0)
 
     encoder_outputs, encoder_hidden = encoder(input_tensor)
@@ -78,7 +68,6 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     decoder_hidden = encoder_hidden
 
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-
     if use_teacher_forcing:
         for di in range(target_length):
             decoder_output, decoder_hidden, decoder_attention = decoder(
@@ -86,25 +75,20 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
             loss += criterion(decoder_output, target_tensor[di])
             decoder_input = target_tensor[di]
 
-    # use own predictions
     else:
         for di in range(target_length):
             decoder_output, decoder_hidden, decoder_attention = decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach()  # detach from history as input
-
             loss += criterion(decoder_output, target_tensor[di])
             if decoder_input.item() == 1:
                 break
-
 
     loss.backward()
     encoder_optimizer.step()
     decoder_optimizer.step()
     return loss.item() / target_length
-
-
 
 def showPlot(points):
     plt.figure()
