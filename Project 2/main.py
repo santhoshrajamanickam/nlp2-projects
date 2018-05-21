@@ -1,5 +1,4 @@
-from model import *
-from train import *
+from positionalModel import *
 from lang import Lang
 from data_process import load_data, tokenize
 
