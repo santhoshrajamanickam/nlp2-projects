@@ -68,7 +68,10 @@ class PositionalEncoder(nn.Module):
             # combine embedding to create positional word embedding
             output[n] = torch.cat((word_embedding,pos_embedding))
 
+        print(output.shape)
+
         hidden = output[0:len(input),:]
+        print(hidden.shape)
         hidden = hidden.mean(dim=0).view(1,1,-1)
         return output, hidden
 

@@ -27,8 +27,6 @@ def evaluate(en, fr, encoder, decoder, sentence, max_length):
                 decoded_words.append('<EOS>')
                 break
             else:
-                print(topi.item())
-                continue
                 decoded_words.append(fr.index2word[topi.item()])
 
             decoder_input = topi.squeeze().detach()

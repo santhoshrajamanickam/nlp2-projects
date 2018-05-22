@@ -15,7 +15,7 @@ def tensorFromSentence(lang, sentence):
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
 
-def tensorsFromPair(english, french, pair):
-    input_tensor = tensorFromSentence(english, pair[0])
-    target_tensor = tensorFromSentence(french, pair[1])
+def tensorsFromPair(french, english, pair):
+    input_tensor = tensorFromSentence(french, pair[0])
+    target_tensor = tensorFromSentence(english, pair[1])
     return (input_tensor, target_tensor)
