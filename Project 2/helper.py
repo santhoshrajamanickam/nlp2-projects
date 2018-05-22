@@ -6,7 +6,7 @@ SOS_token = 0
 EOS_token = 1
 
 def indexesFromSentence(lang, sentence):
-    return [lang.word2index[word] for word in sentence] # removed .split(' ') as data is tokenized
+    return [lang.word2index[word] for word in sentence.split(' ')]
 
 
 def tensorFromSentence(lang, sentence):
