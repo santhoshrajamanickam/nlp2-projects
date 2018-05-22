@@ -25,8 +25,8 @@ def revert_BPE(sentence):
     give_command =  Popen(args=command,stdout=PIPE,shell=True).communicate()
     return give_command[0]
 
-english_train = load_data('data/test/test_2017_flickr.en')
-french_train = load_data('data/test/test_2017_flickr.fr')
+english_train = load_data('data/val/val.en')
+french_train = load_data('data/val/val.fr')
 
 
 english_tokenized = tokenize(english_train, 'en')
@@ -36,5 +36,5 @@ french_tokenized = tokenize(french_train, 'fr')
 english_data = [[word.lower() for word in sent] for sent in english_tokenized]
 french_data = [[word.lower() for word in sent] for sent in french_tokenized]
 
-write_file(english_data, 'data/test/test_clean.en')
-write_file(french_data, 'data/test/test_clean.fr')
+write_file(english_data, 'data/val/val_clean.en')
+write_file(french_data, 'data/val/val_clean.fr')
