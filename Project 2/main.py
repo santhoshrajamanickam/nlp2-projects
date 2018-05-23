@@ -57,10 +57,13 @@ n_iters = 75000
 epoch(french, english, sentences, encoder, decoder, n_iters, maximum_length, 500)
 
 # save models
-torch.save(encoder, 'models/RNNencoder')
-torch.save(decoder, 'models/RNNdecoder')
+torch.save(encoder.state_dict(), 'models/RNNencoder')
+torch.save(decoder.state_dict(), 'models/RNNdecoder')
 
 
+# encoder.load_state_dict(torch.load('models/RNNencoder'))
+# decoder.load_state_dict(torch.load('models/RNNdecoder'))
+#
 
 print('===============Calculating metrics...===================')
 sentences = load_data('data/test/test_complete.fr')

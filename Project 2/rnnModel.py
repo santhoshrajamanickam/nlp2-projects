@@ -11,6 +11,8 @@ import numpy as np
 import time
 import math
 import random
+import pickle
+
 
 from helper import *
 
@@ -68,7 +70,7 @@ class RNNEncoder(nn.Module):
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
-def epoch(en,fr,sentences, encoder, decoder, n_iters, max_length, print_every=1000, plot_every=100, learning_rate=0.01):
+def epoch(en,fr,sentences, encoder, decoder, n_iters, max_length, print_every=1000, plot_every=10, learning_rate=0.01):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
@@ -103,10 +105,8 @@ def epoch(en,fr,sentences, encoder, decoder, n_iters, max_length, print_every=10
             plot_losses.append(plot_loss_avg)
             plot_loss_total = 0
 
-        if iter % 10000 == 0:
-            torch.save(encoder.state_dict(), 'trained_models/encoder_it{}'.format(iter))
-            torch.save(decoder.state_dict(), 'trained_models/decoder_it{}'.format(iter))
-
+    with open('RNNloss', 'wb') as fp:
+        pickle.dump(plot_losses, fp)
     showPlot(plot_losses)
 
 
