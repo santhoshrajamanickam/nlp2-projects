@@ -66,7 +66,7 @@ sentences = load_data('data/test/test_complete.fr')
 with open('test_predictions.txt', 'w') as file:
     for sent in sentences:
         print(sent)
-        prediction, _ = evaluate(french, english, encoder, decoder, sent, maximum_length)
+        prediction, _ = evaluateRNN(french, english, encoder, decoder, sent, maximum_length)
         sentence = (' '.join(prediction).replace('"',''))
         translation = revert_BPE(sentence)
         print(translation)

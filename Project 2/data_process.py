@@ -23,7 +23,8 @@ def revert_BPE(sentence):
     sentence = sentence.replace("<EOS>", "")
     command = 'echo "{}" | sed -E "s/(@@ )|(@@ ?$)//g"'.format(sentence)
     give_command =  Popen(args=command,stdout=PIPE,shell=True).communicate()
-    return give_command[0]
+    reverted_sentence = give_command[0]
+    return reverted_sentence.decode('utf-8', 'ignore')
 
 english_train = load_data('data/val/val.en')
 french_train = load_data('data/val/val.fr')
