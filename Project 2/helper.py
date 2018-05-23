@@ -6,7 +6,13 @@ SOS_token = 0
 EOS_token = 1
 
 def indexesFromSentence(lang, sentence):
-    return [lang.word2index[word] for word in sentence.split(' ')]
+    indices = []
+    for word in sentence.split(' '):
+        try:
+            indices.append(lang.word2index[word])
+        except KeyError:
+            indices.append(lang.word2index['UNK'])
+    return indices
 
 
 def tensorFromSentence(lang, sentence):

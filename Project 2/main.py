@@ -4,8 +4,7 @@ from lang import Lang
 from evaluate import *
 from data_process import load_data, tokenize, revert_BPE
 import nltk as nltk
-import copy
-import pickle
+import os
 
 
 # hyperparameters
@@ -32,6 +31,8 @@ for sent in sentences:
     en_sent = sent[1].split(' ')
     english.addSentence(en_sent)
     french.addSentence(fr_sent)
+english.addWord('UNK')
+french.addWord('UNK')
 
 # example print of revert BPE
 test = sentences[1]
@@ -52,12 +53,12 @@ decoder = AttnDecoderRNN(hidden_size, output_voc_size, maximum_length)
 
 
 print('===============Training model...====================')
-n_iters = 1000
+n_iters = 75000
 epoch(french, english, sentences, encoder, decoder, n_iters, maximum_length, 500)
 
 # save models
-torch.save(encoder, 'models/encoder')
-torch.save(decoder, 'models/decoder')
+torch.save(encoder, 'models/RNNencoder')
+torch.save(decoder, 'models/RNNdecoder')
 
 
 
@@ -65,11 +66,11 @@ print('===============Calculating metrics...===================')
 sentences = load_data('data/test/test_complete.fr')
 with open('test_predictions.txt', 'w') as file:
     for sent in sentences:
-        print(sent)
+        #print(sent)
         prediction, _ = evaluateRNN(french, english, encoder, decoder, sent, maximum_length)
         sentence = (' '.join(prediction).replace('"',''))
         translation = revert_BPE(sentence)
-        print(translation)
+        #print(translation)
         file.write(str(translation))
 
-os.system("perl multi-bleu.pl -lc data/test/test_2017_flickr.en < test_predictions.txt")
+os.system("perl multi-bleu.perl -lc data/test/test_2017_flickr.en < test_predictions.txt")
