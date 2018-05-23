@@ -1,13 +1,18 @@
 from positionalModel import *
+from rnnModel import *
 from lang import Lang
 from evaluate import *
 from data_process import load_data, tokenize, revert_BPE
 import nltk as nltk
+import copy
+import pickle
+
 
 # hyperparameters
 word_embedding_size = 512
 pos_embedding_size = 50
-hidden_size = word_embedding_size + pos_embedding_size
+#hidden_size = word_embedding_size + pos_embedding_size
+hidden_size = word_embedding_size
 maximum_length = 50
 
 english_data = load_data('data/train/train_complete.en')
@@ -41,12 +46,18 @@ print("Size of English vocabulary: ", output_voc_size)
 print("Size of French vocabulary: ", input_voc_size)
 
 
-encoder = PositionalEncoder(input_voc_size, word_embedding_size, pos_embedding_size, maximum_length)
+#encoder = PositionalEncoder(input_voc_size, word_embedding_size, pos_embedding_size, maximum_length)
+encoder = RNNEncoder(input_voc_size, word_embedding_size)
 decoder = AttnDecoderRNN(hidden_size, output_voc_size, maximum_length)
 
+
 print('===============Training model...====================')
-n_iters = 100
+n_iters = 1000
 epoch(french, english, sentences, encoder, decoder, n_iters, maximum_length, 500)
+
+# save models
+torch.save(encoder, 'models/encoder')
+torch.save(decoder, 'models/decoder')
 
 
 
@@ -54,9 +65,11 @@ print('===============Calculating metrics...===================')
 sentences = load_data('data/test/test_complete.fr')
 with open('test_predictions.txt', 'w') as file:
     for sent in sentences:
+        print(sent)
         prediction, _ = evaluate(french, english, encoder, decoder, sent, maximum_length)
         sentence = (' '.join(prediction).replace('"',''))
         translation = revert_BPE(sentence)
+        print(translation)
         file.write(str(translation))
 
 os.system("perl multi-bleu.pl -lc data/test/test_2017_flickr.en < test_predictions.txt")

@@ -51,25 +51,18 @@ class AttnDecoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 
-class PositionalEncoder(nn.Module):
-    def __init__(self, vocabulary_size, word_embedding_size, pos_embedding_size, max_length):
-        super(PositionalEncoder,self).__init__()
-        self.hidden_size = word_embedding_size + pos_embedding_size
-        self.max_length = max_length
-        self.word_embedding = nn.Embedding(vocabulary_size, word_embedding_size)
-        self.pos_embedding = nn.Embedding(max_length, pos_embedding_size)
+class RNNEncoder(nn.Module):
+    def __init__(self, input_size, hidden_size):
+        super(RNNEncoder, self).__init__()
+        self.hidden_size = hidden_size
 
-    def forward(self, input):
-        # output is a matrix of the embeddings
-        output = torch.zeros(self.max_length, self.hidden_size, device=device)
-        for n, word in enumerate(input):
-            word_embedding = self.word_embedding(word).view(-1)
-            pos_embedding = self.pos_embedding(torch.tensor(n)).view(-1)
-            # combine embedding to create positional word embedding
-            output[n] = torch.cat((word_embedding,pos_embedding))
+        self.embedding = nn.Embedding(input_size, hidden_size)
+        self.gru = nn.GRU(hidden_size, hidden_size)
 
-        hidden = output[0:len(input),:]
-        hidden = hidden.mean(dim=0).view(1,1,-1)
+    def forward(self, input, hidden):
+        embedded = self.embedding(input).view(1, 1, -1)
+        output = embedded
+        output, hidden = self.gru(output, hidden)
         return output, hidden
 
     def initHidden(self):
@@ -120,12 +113,19 @@ def epoch(en,fr,sentences, encoder, decoder, n_iters, max_length, print_every=10
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio = 0.5):
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
+    encoder_hidden = encoder.initHidden()
     loss = 0
     target_length = target_tensor.size(0)
 
-    encoder_outputs, encoder_hidden = encoder(input_tensor)
-    decoder_input = torch.tensor([[0]], device=device)
+    encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+    for ei in range(input_tensor.size(0)):
+        encoder_output, encoder_hidden = encoder(
+            input_tensor[ei], encoder_hidden)
+        encoder_outputs[ei] = encoder_output[0, 0]
+
+    decoder_input = torch.tensor([[SOS_token]], device=device)
     decoder_hidden = encoder_hidden
+
 
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
     if use_teacher_forcing:
@@ -157,3 +157,17 @@ def showPlot(points):
     loc = ticker.MultipleLocator(base=0.2)
     ax.yaxis.set_major_locator(loc)
     plt.plot(points)
+    plt.show()
+
+def asMinutes(s):
+    m = math.floor(s / 60)
+    s -= m * 60
+    return '%dm %ds' % (m, s)
+
+
+def timeSince(since, percent):
+    now = time.time()
+    s = now - since
+    es = s / (percent)
+    rs = es - s
+    return '%s (- %s)' % (asMinutes(s), asMinutes(rs))

@@ -68,10 +68,7 @@ class PositionalEncoder(nn.Module):
             # combine embedding to create positional word embedding
             output[n] = torch.cat((word_embedding,pos_embedding))
 
-        print(output.shape)
-
         hidden = output[0:len(input),:]
-        print(hidden.shape)
         hidden = hidden.mean(dim=0).view(1,1,-1)
         return output, hidden
 
@@ -113,9 +110,6 @@ def epoch(en,fr,sentences, encoder, decoder, n_iters, max_length, print_every=10
             plot_losses.append(plot_loss_avg)
             plot_loss_total = 0
 
-        if iter % 10000 == 0:
-            torch.save(encoder.state_dict(), 'trained_models/encoder_it{}'.format(iter))
-            torch.save(decoder.state_dict(), 'trained_models/decoder_it{}'.format(iter))
 
     showPlot(plot_losses)
 
