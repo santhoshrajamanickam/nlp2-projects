@@ -70,7 +70,7 @@ class RNNEncoder(nn.Module):
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
-def epoch(en,fr,sentences, encoder, decoder, n_iters, max_length, print_every=1000, plot_every=10, learning_rate=0.01):
+def epoch(fr,en,sentences, encoder, decoder, n_iters, max_length, print_every=1000, plot_every=10, learning_rate=0.01):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
@@ -78,7 +78,7 @@ def epoch(en,fr,sentences, encoder, decoder, n_iters, max_length, print_every=10
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    training_pairs = [tensorsFromPair(en,fr,random.choice(sentences))
+    training_pairs = [tensorsFromPair(fr,en,random.choice(sentences))
                       for i in range(n_iters)]
 
     criterion = nn.NLLLoss()
