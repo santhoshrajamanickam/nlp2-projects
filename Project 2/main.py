@@ -53,7 +53,7 @@ decoder = AttnDecoderRNN(hidden_size, output_voc_size, maximum_length)
 
 
 print('===============Training model...====================')
-n_iters = 75000
+n_iters = 3000
 epoch(french, english, sentences, encoder, decoder, n_iters, maximum_length, 500)
 
 # save models
