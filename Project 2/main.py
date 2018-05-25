@@ -2,7 +2,7 @@ from positionalModel import *
 from rnnModel import *
 from lang import Lang
 from evaluate import *
-from data_process import load_data, tokenize, revert_BPE
+from data_process import load_data, revert_BPE
 import nltk as nltk
 import os
 
@@ -53,7 +53,7 @@ decoder = AttnDecoderRNN(hidden_size, output_voc_size, maximum_length)
 
 
 print('===============Training model...====================')
-n_iters = 3000
+n_iters = 100
 epoch(french, english, sentences, encoder, decoder, n_iters, maximum_length, 500)
 
 # save models
