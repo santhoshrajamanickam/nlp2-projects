@@ -1,6 +1,7 @@
 # all functions are from the seq2seq tutorial on pytorch.org
 import time
 import math
+from collections import defaultdict
 import torch
 from torch.autograd import Variable
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -11,7 +12,7 @@ EOS_token = 1
 
 
 # Return a list of indexes, one for each word in the sentence
-def indexesFromSentence(lang, sentence):
+def indexes_from_sentence(lang, sentence):
     indices = []
     for word in sentence.split(' '):
         try:
@@ -22,7 +23,7 @@ def indexesFromSentence(lang, sentence):
 
 
 def tensorFromSentence(lang, sentence):
-    indexes = indexesFromSentence(lang, sentence)
+    indexes = indexes_from_sentence(lang, sentence)
     indexes.append(EOS_token)
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
@@ -34,7 +35,7 @@ def tensorsFromPair(french, english, pair):
 
 
 def variable_from_sentence(lang, sentence):
-    indexes = indexesFromSentence(lang, sentence)
+    indexes = indexes_from_sentence(lang, sentence)
     indexes.append(EOS_token)
     var = Variable(torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1))
     return var
@@ -44,6 +45,15 @@ def variables_from_pair(input_lang, output_lang, pair):
     input_variable = variable_from_sentence(input_lang, pair[0])
     target_variable = variable_from_sentence(output_lang, pair[1])
     return input_variable, target_variable
+
+
+def get_all_variables(input_lang, output_lang, pairs):
+    tensor_pairs = defaultdict()
+    for index, pair in enumerate(pairs):
+        input_variable, target_variable = variables_from_pair(input_lang, output_lang, pair)
+        tensor_pairs[index] = (input_variable, target_variable)
+    return tensor_pairs
+
 
 def asMinutes(s):
     m = math.floor(s / 60)
@@ -57,4 +67,3 @@ def timeSince(since, percent):
     es = s / (percent)
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
-
