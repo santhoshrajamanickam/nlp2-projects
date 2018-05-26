@@ -7,6 +7,8 @@ from helper import indexes_from_sentence
 import torch
 from torch.autograd import Variable
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if torch.cuda.is_available():
+    USE_CUDA =True
 
 num_merge_operation = 10000
 
@@ -66,8 +68,12 @@ def get_batches(input_lang, target_lang, batch_size, pairs, index):
     target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
 
     # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
-    input_var = Variable(torch.LongTensor(input_padded, device=device)).transpose(0, 1)
-    target_var = Variable(torch.LongTensor(target_padded, device=device)).transpose(0, 1)
+    input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
+    target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
+
+    if USE_CUDA:
+        input_var = input_var.cuda()
+        target_var = target_var.cuda()
 
     return input_var, input_lengths, target_var, target_lengths
 
@@ -93,8 +99,12 @@ def random_batch(input_lang, target_lang, batch_size, pairs):
     target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
 
     # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
-    input_var = Variable(torch.LongTensor(input_padded, device=device)).transpose(0, 1)
-    target_var = Variable(torch.LongTensor(target_padded, device=device)).transpose(0, 1)
+    input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
+    target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
+
+    if USE_CUDA:
+        input_var = input_var.cuda()
+        target_var = target_var.cuda()
 
     return input_var, input_lengths, target_var, target_lengths
 

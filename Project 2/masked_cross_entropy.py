@@ -2,6 +2,8 @@ import torch
 from torch.nn import functional
 from torch.autograd import Variable
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if torch.cuda.is_available():
+    USE_CUDA =True
 
 def sequence_mask(sequence_length, max_len=None):
     if max_len is None:
@@ -18,7 +20,9 @@ def sequence_mask(sequence_length, max_len=None):
 
 
 def masked_cross_entropy(logits, target, length):
-    length = Variable(torch.LongTensor(length, device=device))
+    length = Variable(torch.LongTensor(length))
+    if USE_CUDA:
+        length.cuda()
 
     """
     Args:

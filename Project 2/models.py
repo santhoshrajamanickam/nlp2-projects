@@ -5,6 +5,9 @@ from torch import optim
 from torch.autograd import Variable
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+if torch.cuda.is_available():
+    USE_CUDA =True
+
 from helper import variables_from_pair, variable_from_sentence, time_since, indexes_from_sentence, as_minutes
 from data_process import load_data, revert_BPE, get_batches
 from masked_cross_entropy import *
@@ -39,11 +42,16 @@ class Model:
         encoder_outputs, encoder_hidden = self.encoder(input_batches, input_lengths, None)
 
         # Prepare input and output variables
-        decoder_input = Variable(torch.LongTensor([SOS_token] * self.batch_size, device=device))
+        decoder_input = Variable(torch.LongTensor([SOS_token] * self.batch_size))
         decoder_hidden = encoder_hidden[:self.decoder.n_layers]  # Use last (forward) hidden state from encoder
 
         max_target_length = max(target_lengths)
-        all_decoder_outputs = Variable(torch.zeros(max_target_length, self.batch_size, self.decoder.output_size, device=device))
+        all_decoder_outputs = Variable(torch.zeros(max_target_length, self.batch_size, self.decoder.output_size))
+
+        if USE_CUDA:
+            all_decoder_outputs.cuda()
+            decoder_input.cuda()
+
 
         # Run through decoder one time step at a time
         for t in range(max_target_length):
@@ -114,7 +122,10 @@ class Model:
 
             input_lengths = [len(input_seq)]
             input_seqs = [indexes_from_sentence(self.L1, input_seq)]
-            input_batches = Variable(torch.LongTensor(input_seqs, device=device)).transpose(0, 1)
+            input_batches = Variable(torch.LongTensor(input_seqs)).transpose(0, 1)
+
+            if USE_CUDA:
+                input_batches.cuda()
 
             # Set to not-training mode to disable dropout
             self.encoder.train(False)
@@ -126,6 +137,9 @@ class Model:
             # Create starting vectors for decoder
             decoder_input = Variable(torch.LongTensor([SOS_token], device=device))  # SOS
             decoder_hidden = encoder_hidden[:self.decoder.n_layers]  # Use last (forward) hidden state from encoder
+
+            if USE_CUDA:
+                decoder_input.cuda()
 
             # Store output words and attention states
             decoded_words = []
@@ -148,7 +162,8 @@ class Model:
                     decoded_words.append(self.L2.index2word[ni.item()])
 
                 # Next input is chosen word
-                decoder_input = Variable(torch.LongTensor([ni], device=device))
+                decoder_input = Variable(torch.LongTensor([ni]))
+                if USE_CUDA: decoder_input.cuda()
 
         # Set back to training mode
         self.encoder.train(True)

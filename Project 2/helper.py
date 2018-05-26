@@ -4,6 +4,8 @@ from collections import defaultdict
 import torch
 from torch.autograd import Variable
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if torch.cuda.is_available():
+    USE_CUDA =True
 
 
 SOS_token = 0

@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if torch.cuda.is_available():
+    USE_CUDA =True
 
 
 class EncoderRNN(nn.Module):

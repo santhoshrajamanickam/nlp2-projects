@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if torch.cuda.is_available():
+    USE_CUDA =True
 
 
 class Attn(nn.Module):
@@ -17,15 +19,17 @@ class Attn(nn.Module):
 
         elif self.method == 'concat':
             self.attn = nn.Linear(self.hidden_size * 2, hidden_size)
-            self.v = nn.Parameter(torch.FloatTensor(1, hidden_size, device=device))
+            self.v = nn.Parameter(torch.FloatTensor(1, hidden_size))
 
     def forward(self, hidden, encoder_outputs):
         max_len = encoder_outputs.size(0)
         this_batch_size = encoder_outputs.size(1)
 
         # Create variable to store attention energies
-        attn_energies = Variable(torch.zeros(this_batch_size, max_len, device=device))  # B x S
+        attn_energies = Variable(torch.zeros(this_batch_size, max_len))  # B x S
 
+        if USE_CUDA:
+            attn_energies.cuda()
 
         # For each batch of encoder outputs
         for b in range(this_batch_size):

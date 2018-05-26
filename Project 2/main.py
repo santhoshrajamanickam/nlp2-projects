@@ -5,6 +5,11 @@ from attentionDecoder import LuongAttnDecoderRNN
 from models import Model
 from data_process import load_data, process_sentences, get_batches
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+if torch.cuda.is_available():
+    USE_CUDA =True
+
 use_pretrained = True
 
 # hyperparameters
@@ -30,6 +35,10 @@ print("Size of French vocabulary: ", input_voc_size)
 
 encoder = EncoderRNN(french.n_words, hidden_size, n_layers)
 decoder = LuongAttnDecoderRNN(hidden_size, english.n_words, n_layers)
+
+if USE_CUDA:
+    encoder.cuda()
+    decoder.cuda()
 
 rnn_model = Model('rnn', french, english, pairs, encoder, decoder,
                   learning_rate=learning_rate, use_batching=True, batch_size=batch_size)
