@@ -17,7 +17,7 @@ class Attn(nn.Module):
 
         elif self.method == 'concat':
             self.attn = nn.Linear(self.hidden_size * 2, hidden_size)
-            self.v = nn.Parameter(torch.FloatTensor(1, hidden_size))
+            self.v = nn.Parameter(torch.FloatTensor(1, hidden_size, device=device))
 
     def forward(self, hidden, encoder_outputs):
         max_len = encoder_outputs.size(0)

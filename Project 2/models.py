@@ -129,7 +129,7 @@ class Model:
 
             # Store output words and attention states
             decoded_words = []
-            decoder_attentions = torch.zeros(max_length + 1, max_length + 1)
+            decoder_attentions = torch.zeros(max_length + 1, max_length + 1, device=device)
 
             # Run through decoder
             for di in range(max_length):
@@ -158,7 +158,7 @@ class Model:
 
     def translate(self, input_path, output_path):
         sentences = load_data(input_path)
-        with open(output_path, 'w') as file:
+        with open(output_path, 'w', encoding='utf8') as file:
             for sentence in sentences:
                 prediction, _ = self.evaluate(sentence, max_length=100)
                 sentence = (' '.join(prediction).replace('"', ''))

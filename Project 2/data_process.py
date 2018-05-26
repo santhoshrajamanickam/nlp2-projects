@@ -19,7 +19,7 @@ EOS_token = 2
 
 
 def load_data(data):
-    with open(data, 'r') as f:
+    with open(data, 'r', encoding='utf8') as f:
         return f.read().splitlines()
 
 def write_file(data, file):
