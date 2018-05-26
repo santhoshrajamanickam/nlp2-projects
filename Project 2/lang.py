@@ -10,12 +10,12 @@ class Lang:
         self.trimmed = False
         self.word2index = {}
         self.word2count = {}
-        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", -1: "-UNK-"}
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", -1: "UNK"}
         self.n_words = 3  # Count default tokens
 
     def add_sentence(self, sentence):
         for word in sentence:
-            self.addWord(word)
+            self.add_word(word)
 
     def add_word(self, word):
         if word not in self.word2index:
@@ -25,6 +25,10 @@ class Lang:
             self.n_words += 1
         else:
             self.word2count[word] += 1
+
+    # Return a list of indexes, one for each word in the sentence, plus EOS
+    def indexes_from_sentence(self, sentence):
+        return [self.word2index[word] for word in sentence] + [EOS_token]
 
     # Remove words below a certain count threshold
     def trim(self, min_count):
@@ -48,6 +52,6 @@ class Lang:
         self.n_words = 3  # Count default tokens
 
         for word in keep_words:
-            self.index_word(word)
+            self.add_word(word)
 
 
