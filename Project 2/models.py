@@ -52,6 +52,7 @@ class Model:
             all_decoder_outputs.cuda()
             decoder_input.cuda()
             encoder_outputs.cuda()
+            decoder_hidden.cuda()
 
 
         # Run through decoder one time step at a time
