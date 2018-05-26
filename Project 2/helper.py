@@ -1,4 +1,3 @@
-# all functions are from the seq2seq tutorial on pytorch.org
 import time
 import math
 from collections import defaultdict
@@ -19,6 +18,7 @@ def indexes_from_sentence(lang, sentence):
             indices.append(lang.word2index[word])
         except KeyError:
             indices.append(lang.word2index['UNK'])
+    indices += [EOS_token]
     return indices
 
 
@@ -55,15 +55,15 @@ def get_all_variables(input_lang, output_lang, pairs):
     return tensor_pairs
 
 
-def asMinutes(s):
+def as_minutes(s):
     m = math.floor(s / 60)
     s -= m * 60
     return '%dm %ds' % (m, s)
 
 
-def timeSince(since, percent):
+def time_since(since, percent):
     now = time.time()
     s = now - since
     es = s / (percent)
     rs = es - s
-    return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
+    return '%s (- %s)' % (as_minutes(s), as_minutes(rs))

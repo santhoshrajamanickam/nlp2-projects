@@ -8,8 +8,9 @@ from torch import optim
 from torch.autograd import Variable
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-from helper import variables_from_pair, variable_from_sentence, timeSince
-from data_process import load_data, revert_BPE
+from helper import variables_from_pair, variable_from_sentence, time_since, indexes_from_sentence, as_minutes
+from data_process import load_data, revert_BPE, get_batches
+from masked_cross_entropy import *
 
 SOS_token = 0
 EOS_token = 1
@@ -17,136 +18,151 @@ EOS_token = 1
 
 class Model:
 
-    def __init__(self, model_name, L1, L2, sentence_pairs, encoder, decoder, max_length, learning_rate=0.01, use_pretrained=False):
+    def __init__(self, model_name, L1, L2, sentence_pairs, encoder, decoder, max_length=50, learning_rate=0.01, use_pretrained=False, use_batching=False, batch_size=1,decoder_learning_ratio=5.0):
         self.model_name = model_name
         self.L1 = L1
         self.L2 = L2
+        self.batch_size = batch_size
         self.pairs = sentence_pairs
-        if not use_pretrained:
-            self.encoder = encoder
-            self.decoder = decoder
-        else:
-            self.encoder = torch.load('./models/{}_encoder.pt'.format(self.model_name))
-            self.decoder = torch.load('./models/{}_decoder.pt'.format(self.model_name))
-        self.encoder_optimizer = optim.SGD(self.encoder.parameters(), lr=learning_rate)
-        self.decoder_optimizer = optim.SGD(self.decoder.parameters(), lr=learning_rate)
+        self.encoder = encoder
+        self.decoder = decoder
         self.max_length = max_length
-        self.criterion = nn.NLLLoss()
+        self.encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+        self.decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
+        self.criterion = masked_cross_entropy
 
-    def save_model(self):
-        # save models
-        torch.save(self.encoder.state_dict(), './models/{}_encoder.pt'.format(self.model_name))
-        torch.save(self.decoder.state_dict(), './models/{}_decoder.pt'.format(self.model_name))
-
-    def train(self, input_variable, target_variable, teacher_forcing_ratio = 0.5, clip = 5.0):
+    def train(self, input_batches, input_lengths, target_batches, target_lengths, clip=5.0):
 
         # Zero gradients of both optimizers
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
         loss = 0  # Added onto for each word
 
-        # Get size of input and target sentences
-        input_length = input_variable.size()[0]
-        target_length = target_variable.size()[0]
-
         # Run words through encoder
-        encoder_outputs, encoder_hidden = self.encoder(input_variable)
+        encoder_outputs, encoder_hidden = self.encoder(input_batches, input_lengths, None)
 
         # Prepare input and output variables
-        decoder_input = Variable(torch.LongTensor([[SOS_token]], device=device))
-        decoder_hidden = encoder_hidden  # Use last hidden state from encoder to start decoder
+        decoder_input = Variable(torch.LongTensor([SOS_token] * self.batch_size, device=device))
+        decoder_hidden = encoder_hidden[:self.decoder.n_layers]  # Use last (forward) hidden state from encoder
 
-        # Choose whether to use teacher forcing
-        use_teacher_forcing = random.random() < teacher_forcing_ratio
-        if use_teacher_forcing:
+        max_target_length = max(target_lengths)
+        all_decoder_outputs = Variable(torch.zeros(max_target_length, self.batch_size, self.decoder.output_size, device=device))
 
-            # Teacher forcing: Use the ground-truth target as the next input
-            for di in range(target_length):
-                decoder_output, decoder_hidden, decoder_attention = self.decoder(decoder_input, decoder_hidden, encoder_outputs)
-                loss += self.criterion(decoder_output, target_variable[di])
-                decoder_input = target_variable[di]  # Next target is next input
+        # Run through decoder one time step at a time
+        for t in range(max_target_length):
+            decoder_output, decoder_hidden, decoder_attn = self.decoder(
+                decoder_input, decoder_hidden, encoder_outputs
+            )
 
-        else:
-            # Without teacher forcing: use network's own prediction as the next input
-            for di in range(target_length):
-                decoder_output, decoder_hidden, decoder_attention = self.decoder(decoder_input, decoder_hidden,
-                                                                                 encoder_outputs)
-                loss += self.criterion(decoder_output, target_variable[di])
+            all_decoder_outputs[t] = decoder_output
+            decoder_input = target_batches[t]  # Next input is current target
 
-                # Get most likely word index (highest value) from output
-                topv, topi = decoder_output.data.topk(1)
-                ni = topi[0][0]
-
-                decoder_input = Variable(torch.LongTensor([[ni]], device=device))  # Chosen word is next input
-
-                # Stop at end of sentence (not necessary when using known targets)
-                if ni == EOS_token: break
-
-        # Backpropagation
+        # Loss calculation and backpropagation
+        loss = masked_cross_entropy(
+            all_decoder_outputs.transpose(0, 1).contiguous(),  # -> batch x seq
+            target_batches.transpose(0, 1).contiguous(),  # -> batch x seq
+            target_lengths
+        )
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.encoder.parameters(), clip)
-        torch.nn.utils.clip_grad_norm_(self.decoder.parameters(), clip)
+
+        # Clip gradient norms
+        ec = torch.nn.utils.clip_grad_norm_(self.encoder.parameters(), clip)
+        dc = torch.nn.utils.clip_grad_norm_(self.decoder.parameters(), clip)
+
+        # Update parameters with optimizers
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
 
-        return loss.item() / target_length
+        return loss.item(), ec, dc
 
-    def epoch(self, n_iters, print_every=100, plot_every=100):
+    def epoch(self, n_epochs, print_every=20):
         print('===============Training model...====================')
-        start = time.time()
-        plot_losses = []
-        print_loss_total = 0  # Reset every print_every
-        # plot_loss_total = 0  # Reset every plot_every
+        epoch = 0
 
-        for i in range(0, n_iters):
+        while epoch < n_epochs:
 
-            input_variable, target_variable = variables_from_pair(self.L1, self.L2, random.choice(self.pairs))
-            
-            if len(input_variable) > self.max_length:
-                continue
-            loss = self.train(input_variable, target_variable)
-            print_loss_total += loss
+            start = time.time()
 
-            if i % print_every == 0 and i != 0:
-                print(i)
-                print_loss_avg = print_loss_total / print_every
-                print_loss_total = 0
-                print('%s (%d %d%%) %.4f' % (timeSince(start, i / n_iters),
-                                             i, i / n_iters * 100, print_loss_avg))
+            print_loss_total = 0
+            num_batches = len(self.pairs) / self.batch_size
 
+            batch = 1
 
-    def predict(self, sentence):
+            for index in range(0, len(self.pairs), self.batch_size):
+                input_batch, input_lengths, target_batch, target_lengths = get_batches(self.L1, self.L2,
+                                                                                       self.batch_size, self.pairs, index)
+
+                # Run the train function
+                loss, ec, dc = self.train(input_batch, input_lengths, target_batch, target_lengths)
+
+                # Keep track of loss
+                print_loss_total += loss
+                print(batch)
+                batch += 1
+
+                if batch % print_every == 0 and batch != 0:
+                    print_loss_avg = print_loss_total / print_every
+                    print_loss_total = 0
+                    print_summary = '%s (%d %d%%) %.4f' % (
+                    time_since(start, batch / num_batches), batch, batch / num_batches * 100, print_loss_avg)
+                    print(print_summary)
+
+            epoch += 1
+            print('Done Epoch{} in {}'.format(epoch, as_minutes(start-time.time())))
+            self.batch_translate('./data/val/val_final.fr', './validation/val_predictions_{}.txt'.format(epoch))
+
+    def evaluate(self, input_seq, max_length):
         with torch.no_grad():
-            input_variable = variable_from_sentence(self.L1, sentence)
-            input_length = input_variable.size()[0]
-            encoder_output, encoder_hidden = self.encoder(input_variable)
 
-            decoder_input = Variable(torch.LongTensor([[SOS_token]], device=device))
-            decoder_hidden = encoder_hidden  # Use last hidden state from encoder to start decoder
+            input_lengths = [len(input_seq)]
+            input_seqs = [indexes_from_sentence(self.L1, input_seq)]
+            input_batches = Variable(torch.LongTensor(input_seqs, device=device)).transpose(0, 1)
 
+            # Set to not-training mode to disable dropout
+            self.encoder.train(False)
+            self.decoder.train(False)
+
+            # Run through encoder
+            encoder_outputs, encoder_hidden = self.encoder.single_forward(input_batches, input_lengths, None)
+
+            # Create starting vectors for decoder
+            decoder_input = Variable(torch.LongTensor([SOS_token], device=device))  # SOS
+            decoder_hidden = encoder_hidden[:self.decoder.n_layers]  # Use last (forward) hidden state from encoder
+
+            # Store output words and attention states
             decoded_words = []
-            decoder_attentions = torch.zeros(self.max_length, self.max_length)
+            decoder_attentions = torch.zeros(max_length + 1, max_length + 1)
 
-            for di in range(self.max_length):
+            # Run through decoder
+            for di in range(max_length):
                 decoder_output, decoder_hidden, decoder_attention = self.decoder(
-                    decoder_input, decoder_hidden, encoder_output)
-                decoder_attentions[di] = decoder_attention.data
+                    decoder_input, decoder_hidden, encoder_outputs
+                )
+                decoder_attentions[di, :decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).cpu().data
+
+                # Choose top word from output
                 topv, topi = decoder_output.data.topk(1)
-                if topi.item() == EOS_token:
+                ni = topi[0][0]
+                if ni == EOS_token:
                     decoded_words.append('<EOS>')
                     break
                 else:
-                    decoded_words.append(self.L2.index2word[topi.item()])
+                    decoded_words.append(self.L2.index2word[ni.item()])
 
-                decoder_input = topi.squeeze().detach()
+                # Next input is chosen word
+                decoder_input = Variable(torch.LongTensor([ni], device=device))
 
-            return decoded_words, decoder_attentions[:di + 1]
+        # Set back to training mode
+        self.encoder.train(True)
+        self.decoder.train(True)
 
-    def translate(self, input_path):
+        return decoded_words, decoder_attentions[:di + 1, :len(encoder_outputs)]
+
+    def translate(self, input_path, output_path):
         sentences = load_data(input_path)
-        with open('test_predictions.txt', 'w') as file:
+        with open(output_path, 'w') as file:
             for sentence in sentences:
-                prediction, _ = self.predict(sentence)
+                prediction, _ = self.evaluate(sentence, max_length=50)
                 sentence = (' '.join(prediction).replace('"', ''))
                 translation = revert_BPE(sentence)
                 file.write(str(translation))

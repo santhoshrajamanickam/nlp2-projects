@@ -1,0 +1,1 @@
+This directory contains the validation outputs generated during training.
