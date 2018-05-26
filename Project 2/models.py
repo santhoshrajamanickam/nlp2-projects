@@ -6,7 +6,7 @@ from torch.autograd import Variable
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if torch.cuda.is_available():
-    USE_CUDA =True
+    USE_CUDA = True
 
 from helper import variables_from_pair, variable_from_sentence, time_since, indexes_from_sentence, as_minutes
 from data_process import load_data, revert_BPE, get_batches
@@ -51,6 +51,7 @@ class Model:
         if USE_CUDA:
             all_decoder_outputs.cuda()
             decoder_input.cuda()
+            encoder_outputs.cuda()
 
 
         # Run through decoder one time step at a time
@@ -135,15 +136,17 @@ class Model:
             encoder_outputs, encoder_hidden = self.encoder.single_forward(input_batches, input_lengths, None)
 
             # Create starting vectors for decoder
-            decoder_input = Variable(torch.LongTensor([SOS_token], device=device))  # SOS
+            decoder_input = Variable(torch.LongTensor([SOS_token]))  # SOS
             decoder_hidden = encoder_hidden[:self.decoder.n_layers]  # Use last (forward) hidden state from encoder
 
             if USE_CUDA:
                 decoder_input.cuda()
+                decoder_hidden.cuda()
+                encoder_outputs.cuda()
 
             # Store output words and attention states
             decoded_words = []
-            decoder_attentions = torch.zeros(max_length + 1, max_length + 1, device=device)
+            decoder_attentions = torch.zeros(max_length + 1, max_length + 1)
 
             # Run through decoder
             for di in range(max_length):
