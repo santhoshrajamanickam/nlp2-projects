@@ -51,10 +51,9 @@ class Model:
         all_decoder_outputs = Variable(torch.zeros(max_target_length, self.batch_size, self.decoder.output_size))
 
         if USE_CUDA:
-            all_decoder_outputs.cuda()
-            decoder_input.cuda()
-            encoder_outputs.cuda()
-            decoder_hidden.cuda()
+            all_decoder_outputs = all_decoder_outputs.cuda()
+            decoder_input = decoder_input.cuda()
+            encoder_outputs = encoder_outputs.cuda()
 
 
         # Run through decoder one time step at a time
@@ -65,8 +64,6 @@ class Model:
 
             all_decoder_outputs[t] = decoder_output
             decoder_input = target_batches[t]  # Next input is current target
-            if USE_CUDA:
-                decoder_input.cuda()
 
         # Loss calculation and backpropagation
         loss = masked_cross_entropy(
@@ -131,7 +128,7 @@ class Model:
             input_batches = Variable(torch.LongTensor(input_seqs)).transpose(0, 1)
 
             if USE_CUDA:
-                input_batches.cuda()
+                input_batches = input_batches.cuda()
 
             # Set to not-training mode to disable dropout
             self.encoder.train(False)
@@ -145,9 +142,9 @@ class Model:
             decoder_hidden = encoder_hidden[:self.decoder.n_layers]  # Use last (forward) hidden state from encoder
 
             if USE_CUDA:
-                decoder_input.cuda()
-                decoder_hidden.cuda()
-                encoder_outputs.cuda()
+                decoder_input = decoder_input.cuda()
+                decoder_hidden = decoder_hidden.cuda()
+                encoder_outputs = encoder_outputs.cuda()
 
             # Store output words and attention states
             decoded_words = []
@@ -172,7 +169,7 @@ class Model:
                 # Next input is chosen word
                 decoder_input = Variable(torch.LongTensor([ni]))
                 if USE_CUDA:
-                    decoder_input.cuda()
+                    decoder_input = decoder_input.cuda()
 
         # Set back to training mode
         self.encoder.train(True)

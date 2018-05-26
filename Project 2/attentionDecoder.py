@@ -30,7 +30,7 @@ class Attn(nn.Module):
         attn_energies = Variable(torch.zeros(this_batch_size, max_len))  # B x S
 
         if USE_CUDA:
-            attn_energies.cuda()
+            attn_energies = attn_energies.cuda()
 
         # For each batch of encoder outputs
         for b in range(this_batch_size):
@@ -80,9 +80,6 @@ class LuongAttnDecoderRNN(nn.Module):
 
     def forward(self, input_seq, last_hidden, encoder_outputs):
         # Note: we run this one step at a time
-
-        if USE_CUDA:
-            input_seq.cuda()
         # Get the embedding of the current input word (last output word)
         batch_size = input_seq.size(0)
         embedded = self.embedding(input_seq)

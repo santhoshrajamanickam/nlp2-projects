@@ -24,7 +24,7 @@ def sequence_mask(sequence_length, max_len=None):
 def masked_cross_entropy(logits, target, length):
     length = Variable(torch.LongTensor(length))
     if USE_CUDA:
-        length.cuda()
+        length = length.cuda()
 
     """
     Args:
