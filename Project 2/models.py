@@ -1,9 +1,6 @@
 import time
-import random
-import math
 
 import torch
-import torch.nn as nn
 from torch import optim
 from torch.autograd import Variable
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -75,7 +72,7 @@ class Model:
 
         return loss.item(), ec, dc
 
-    def epoch(self, n_epochs, print_every=20):
+    def epoch(self, n_epochs, print_every=25):
         print('===============Training model...====================')
         epoch = 0
 
@@ -109,7 +106,8 @@ class Model:
 
             epoch += 1
             print('Done Epoch{} in {}'.format(epoch, as_minutes(start-time.time())))
-            self.batch_translate('./data/val/val_final.fr', './validation/val_predictions_{}.txt'.format(epoch))
+            print('===============Validating model...====================')
+            self.translate('./data/val/val_final.fr', './validation/val_predictions_{}.txt'.format(epoch))
 
     def evaluate(self, input_seq, max_length):
         with torch.no_grad():
@@ -162,7 +160,7 @@ class Model:
         sentences = load_data(input_path)
         with open(output_path, 'w') as file:
             for sentence in sentences:
-                prediction, _ = self.evaluate(sentence, max_length=50)
+                prediction, _ = self.evaluate(sentence, max_length=100)
                 sentence = (' '.join(prediction).replace('"', ''))
                 translation = revert_BPE(sentence)
                 file.write(str(translation))
