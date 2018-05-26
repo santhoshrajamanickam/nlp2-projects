@@ -8,7 +8,9 @@ from data_process import load_data, process_sentences, get_batches
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if torch.cuda.is_available():
-    USE_CUDA =True
+    USE_CUDA = True
+else:
+    USE_CUDA = False
 
 use_pretrained = True
 

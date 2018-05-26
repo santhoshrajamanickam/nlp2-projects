@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-if torch.cuda.is_available():
-    USE_CUDA =True
 
+if torch.cuda.is_available():
+    USE_CUDA = True
+else:
+    USE_CUDA = False
 
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size, n_layers=1, dropout=0.1):

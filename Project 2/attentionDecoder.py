@@ -4,8 +4,9 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if torch.cuda.is_available():
-    USE_CUDA =True
-
+    USE_CUDA = True
+else:
+    USE_CUDA = False
 
 class Attn(nn.Module):
     def __init__(self, method, hidden_size):
@@ -80,6 +81,8 @@ class LuongAttnDecoderRNN(nn.Module):
     def forward(self, input_seq, last_hidden, encoder_outputs):
         # Note: we run this one step at a time
 
+        if USE_CUDA:
+            input_seq.cuda()
         # Get the embedding of the current input word (last output word)
         batch_size = input_seq.size(0)
         embedded = self.embedding(input_seq)

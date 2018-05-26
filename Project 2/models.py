@@ -7,6 +7,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if torch.cuda.is_available():
     USE_CUDA = True
+else:
+    USE_CUDA = False
 
 from helper import variables_from_pair, variable_from_sentence, time_since, indexes_from_sentence, as_minutes
 from data_process import load_data, revert_BPE, get_batches

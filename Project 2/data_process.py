@@ -8,7 +8,9 @@ import torch
 from torch.autograd import Variable
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if torch.cuda.is_available():
-    USE_CUDA =True
+    USE_CUDA = True
+else:
+    USE_CUDA = False
 
 num_merge_operation = 10000
 
