@@ -63,6 +63,8 @@ class Model:
 
             all_decoder_outputs[t] = decoder_output
             decoder_input = target_batches[t]  # Next input is current target
+            if USE_CUDA:
+                decoder_input.cuda()
 
         # Loss calculation and backpropagation
         loss = masked_cross_entropy(
@@ -167,7 +169,8 @@ class Model:
 
                 # Next input is chosen word
                 decoder_input = Variable(torch.LongTensor([ni]))
-                if USE_CUDA: decoder_input.cuda()
+                if USE_CUDA:
+                    decoder_input.cuda()
 
         # Set back to training mode
         self.encoder.train(True)
