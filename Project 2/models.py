@@ -1,4 +1,5 @@
 import time
+import random
 
 import torch
 from torch import optim
@@ -11,7 +12,7 @@ else:
     USE_CUDA = False
 
 from helper import variables_from_pair, variable_from_sentence, time_since, indexes_from_sentence, as_minutes
-from data_process import load_data, revert_BPE, get_batches
+from data_process import load_data, revert_BPE, get_batches, random_batch
 from masked_cross_entropy import *
 
 SOS_token = 0
@@ -32,6 +33,11 @@ class Model:
         self.encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
         self.decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
         self.criterion = masked_cross_entropy
+
+    def save_model(self, encoder_path, decoder_path):
+        torch.save(self.encoder.state_dict(), encoder_path)
+        torch.save(self.decoder.state_dict(), decoder_path)
+
 
     def train(self, input_batches, input_lengths, target_batches, target_lengths, clip=5.0):
 
@@ -185,3 +191,50 @@ class Model:
                 sentence = (' '.join(prediction).replace('"', ''))
                 translation = revert_BPE(sentence)
                 file.write(str(translation))
+
+    def evaluate_randomly(self):
+        sentences = load_data('./data/val/val_final.fr')
+        sentence = random.choice(sentences)
+        prediction, _ = self.evaluate(sentence, max_length=100)
+        sentence = (' '.join(prediction).replace('"', ''))
+        translation = revert_BPE(sentence)
+        print('Random validation')
+        print(str(translation))
+
+
+    def random_epoch(self, n_epochs, print_every=20):
+        print('===============Training model...====================')
+        epoch = 0
+        print_loss_total = 0
+        start = time.time()
+
+        while epoch < n_epochs:
+
+            input_batch, input_lengths, target_batch, target_lengths = random_batch(self.L1, self.L2,
+                                                                                    self.batch_size, self.pairs)
+
+            # Run the train function
+            loss, ec, dc = self.train(input_batch, input_lengths, target_batch, target_lengths)
+
+            # Keep track of loss
+            print_loss_total += loss
+            epoch += 1
+
+            if epoch % print_every == 0:
+                print_loss_avg = print_loss_total / print_every
+                print_loss_total = 0
+                print_summary = '%s (%d %d%%) %.4f' % (
+                time_since(start, epoch / n_epochs), epoch, epoch / n_epochs * 100, print_loss_avg)
+                print(print_summary)
+
+            if epoch % 10 == 0:
+                self.evaluate_randomly()
+
+            if epoch % 50 == 0:
+                print('===============Validating model...====================')
+                self.translate('./data/val/val_final.fr', './validation/val_random_predictions_{}.txt'.format(epoch))
+
+            print(epoch)
+        print('Done {} epochs in {}'.format(epoch, as_minutes(start-time.time())))
+        print('===============Validating model...====================')
+        self.translate('./data/val/val_final.fr', './validation/val_random_predictions_{}.txt'.format(epoch))

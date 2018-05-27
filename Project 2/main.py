@@ -27,7 +27,7 @@ train_en_sentences = load_data('./data/train/train_final.en')
 train_fr_sentences = load_data('./data/train/train_final.fr')
 
 french, english, pairs = process_sentences('french', 'english', train_fr_sentences,
-                                           train_en_sentences, reduce_complexity=False)
+                                           train_en_sentences, reduce_complexity=True)
 
 input_voc_size = french.n_words
 output_voc_size = english.n_words
@@ -42,14 +42,16 @@ if USE_CUDA:
     encoder.cuda()
     decoder.cuda()
 
+if os.path.isfile('./models/rnn_model_encoder.pt') and use_pretrained:
+    encoder.load_state_dict(torch.load('./models/rnn_model_encoder.pt'))
+if os.path.isfile('./models/rnn_model_decoder.pt') and use_pretrained:
+    decoder.load_state_dict(torch.load('./models/rnn_model_decoder.pt'))
+
 rnn_model = Model('rnn', french, english, pairs, encoder, decoder,
                   learning_rate=learning_rate, use_batching=True, batch_size=batch_size)
 
-if os.path.isfile('./models/rnn_model.pt') and use_pretrained:
-    rnn_model.load_state_dict(torch.load('./models/rnn_model.pt'))
-
-rnn_model.epoch(no_epochs)
-rnn_model.save_state_dict('./models/rnn_model.pt')
+rnn_model.random_epoch(100)
+rnn_model.save_model('./models/rnn_model_encoder.pt', './models/rnn_model_decoder.pt')
 print('===============Testing model...====================')
 rnn_model.translate('./data/test/test_final.fr', './testing/test_predictions.txt')
 os.system("perl multi-bleu.perl -lc ./data/test/test_final.en < ./testing/test_predictions.txt")
