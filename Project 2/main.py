@@ -48,32 +48,38 @@ print("Size of French vocabulary: ", input_voc_size)
 
 
 #encoder = PositionalEncoder(input_voc_size, word_embedding_size, pos_embedding_size, maximum_length)
-encoder = RNNEncoder(input_voc_size, word_embedding_size)
-decoder = AttnDecoderRNN(hidden_size, output_voc_size, maximum_length)
+encoder = EncoderRNN(input_voc_size, word_embedding_size)
+decoder = AttnDecoderRNN(word_embedding_size, output_voc_size, maximum_length)
 
 
 print('===============Training model...====================')
-n_iters = 100
-epoch(french, english, sentences, encoder, decoder, n_iters, maximum_length, 500)
-
-# save models
-torch.save(encoder.state_dict(), 'models/RNNencoder')
-torch.save(decoder.state_dict(), 'models/RNNdecoder')
-
-
-# encoder.load_state_dict(torch.load('models/RNNencoder'))
-# decoder.load_state_dict(torch.load('models/RNNdecoder'))
+# n_iters = 8
+# epochRNN(french, english, sentences, encoder, decoder, n_iters, maximum_length)
 #
+# # save models
+# torch.save(encoder.state_dict(), 'models/POSencoder_final')
+# torch.save(decoder.state_dict(), 'models/POSdecoder_final')
 
-print('===============Calculating metrics...===================')
+
+encoder.load_state_dict(torch.load('models/RNNencoder_3'))
+decoder.load_state_dict(torch.load('models/RNNdecoder_3'))
+
+with open('POSloss', 'rb') as handle:
+    loss = pickle.load(handle)
+print(loss)
+
+# print('===============Calculating metrics...===================')
 sentences = load_data('data/test/test_complete.fr')
+translations = []
 with open('test_predictions.txt', 'w') as file:
-    for sent in sentences:
-        #print(sent)
+    for i, sent in enumerate(sentences):
+        #prediction, _ = evaluate(french, english, encoder, decoder, sent, maximum_length)
         prediction, _ = evaluateRNN(french, english, encoder, decoder, sent, maximum_length)
+        #evaluateAndShowAttention(french, english, encoder, decoder, sent, maximum_length)
         sentence = (' '.join(prediction).replace('"',''))
         translation = revert_BPE(sentence)
-        #print(translation)
+        translations.append(translation)
         file.write(str(translation))
 
-os.system("perl multi-bleu.perl -lc data/test/test_2017_flickr.en < test_predictions.txt")
+os.system("perl multi-bleu.perl -lc data/test/test_lower.en < test_predictions.txt")
+os.system("java -Xmx2G -jar meteor-1.5/meteor-*.jar test_predictions.txt data/test/test_lower.en -l en -norm -a meteor-1.5/data/paraphrase-en.gz")

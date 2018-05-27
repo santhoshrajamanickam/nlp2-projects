@@ -11,8 +11,8 @@ import numpy as np
 import time
 import math
 import random
+from random import shuffle
 import pickle
-
 
 from helper import *
 
@@ -34,7 +34,6 @@ class AttnDecoderRNN(nn.Module):
     def forward(self, input, hidden, encoder_outputs):
         embedded = self.embedding(input).view(1, 1, -1)
         embedded = self.dropout(embedded)
-
         attn_weights = F.softmax(
             self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
         attn_applied = torch.bmm(attn_weights.unsqueeze(0),
@@ -53,24 +52,46 @@ class AttnDecoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 
-class RNNEncoder(nn.Module):
-    def __init__(self, input_size, hidden_size):
-        super(RNNEncoder, self).__init__()
+class EncoderRNN(nn.Module):
+    def __init__(self, input_size, hidden_size, dropout_p=0.1):
+        super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
+        self.dropout_p = dropout_p
 
         self.embedding = nn.Embedding(input_size, hidden_size)
+        self.dropout = nn.Dropout(self.dropout_p)
         self.gru = nn.GRU(hidden_size, hidden_size)
 
+
     def forward(self, input, hidden):
-        embedded = self.embedding(input).view(1, 1, -1)
-        output = embedded
-        output, hidden = self.gru(output, hidden)
+        word_embedded = self.embedding(input).view(1, 1, -1)
+        output, hidden = self.gru(word_embedded, hidden)
         return output, hidden
 
-    def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
 
-def epoch(fr,en,sentences, encoder, decoder, n_iters, max_length, print_every=1000, plot_every=10, learning_rate=0.01):
+    def initHidden(self):
+        return torch.zeros(1, 1, self.hidden_size)
+
+
+def epochRNN(fr, en, sentences, encoder, decoder, n_iters, max_length):
+    losses = []
+    start = time.time()
+
+    for i in range(1, n_iters + 1):
+
+        print(i-1)
+        losses.append(train_sentences_RNN(fr,en,sentences,encoder,decoder,max_length))
+        print('%s (%d %d%%) %.4f' % (timeSince(start, i / n_iters),
+                                     i, i / n_iters * 100, losses[i-1]))
+
+        torch.save(encoder.state_dict(), 'models/RNNencoder_{}'.format(i))
+        torch.save(decoder.state_dict(), 'models/RNNdecoder_{}'.format(i))
+
+    with open('POSloss', 'wb') as fp:
+        pickle.dump(losses, fp)
+
+
+def train_sentences_RNN(fr,en,sentences, encoder, decoder, max_length, num_pairs = 10000, learning_rate=0.01):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
@@ -78,54 +99,44 @@ def epoch(fr,en,sentences, encoder, decoder, n_iters, max_length, print_every=10
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    training_pairs = [tensorsFromPair(fr,en,random.choice(sentences))
-                      for i in range(n_iters)]
+
+    indices = list(range(len(sentences)))
+    random.shuffle(indices)
 
     criterion = nn.NLLLoss()
 
-    for iter in range(1, n_iters + 1):
-        training_pair = training_pairs[iter - 1]
+    for iter in range(1, num_pairs + 1):
+        training_pair = tensorsFromPair(fr,en,sentences[indices[iter-1]])
+
         input_tensor = training_pair[0]
         if len(input_tensor) > max_length:
             continue
         target_tensor = training_pair[1]
-        loss = train(input_tensor, target_tensor, encoder,
+        loss = trainRNN(input_tensor, target_tensor, encoder,
                      decoder, encoder_optimizer, decoder_optimizer, criterion, max_length)
         print_loss_total += loss
         plot_loss_total += loss
 
-        if iter % print_every == 0:
-            print_loss_avg = print_loss_total / print_every
-            print_loss_total = 0
-            print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters),
-                                         iter, iter / n_iters * 100, print_loss_avg))
-
-        if iter % plot_every == 0:
-            plot_loss_avg = plot_loss_total / plot_every
-            plot_losses.append(plot_loss_avg)
-            plot_loss_total = 0
-
-    with open('RNNloss', 'wb') as fp:
-        pickle.dump(plot_losses, fp)
-    showPlot(plot_losses)
+    return loss
 
 
-def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio = 0.5):
+def trainRNN(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length, teacher_forcing_ratio = 0.5):
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
-    encoder_hidden = encoder.initHidden()
     loss = 0
     target_length = target_tensor.size(0)
+    encoder_hidden = encoder.initHidden()
+    average_hidden = torch.zeros(1, encoder.hidden_size)
 
-    encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
-    for ei in range(input_tensor.size(0)):
-        encoder_output, encoder_hidden = encoder(
-            input_tensor[ei], encoder_hidden)
+    encoder_outputs = torch.zeros(max_length, encoder.hidden_size)
+    input_length = input_tensor.size(0)
+
+    for ei in range(input_length):
+        encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
         encoder_outputs[ei] = encoder_output[0, 0]
 
-    decoder_input = torch.tensor([[SOS_token]], device=device)
+    decoder_input = torch.tensor([[0]], device=device)
     decoder_hidden = encoder_hidden
-
 
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
     if use_teacher_forcing:
